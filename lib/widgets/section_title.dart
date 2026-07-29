@@ -25,18 +25,15 @@ class SectionTitle extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: AppColors.text,
+              color: AppColors.textOf(context),
             ),
           ),
         ),
         if (onSeeAll != null)
-          TextButton(
-            onPressed: onSeeAll,
-            child: const Text('Xem tất cả'),
-          ),
+          TextButton(onPressed: onSeeAll, child: const Text('Xem tất cả')),
       ],
     );
   }

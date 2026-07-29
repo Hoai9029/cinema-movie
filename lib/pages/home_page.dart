@@ -41,9 +41,9 @@ class _HomePageState extends State<HomePage> {
     ];
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.backgroundOf(context),
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: AppColors.backgroundOf(context),
         title: Text(_titles[_selectedIndex]),
         actions: const [
           Padding(
@@ -60,14 +60,20 @@ class _HomePageState extends State<HomePage> {
         currentIndex: _selectedIndex,
         // setState báo Flutter: "dữ liệu vừa đổi, vẽ lại giao diện đi".
         onTap: (index) => setState(() => _selectedIndex = index),
-        backgroundColor: AppColors.card,
+        backgroundColor: AppColors.cardOf(context),
         selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textFaded,
+        unselectedItemColor: AppColors.textFadedOf(context),
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Trang chủ'),
-          BottomNavigationBarItem(icon: Icon(Icons.grid_view), label: 'Danh mục'),
-          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Yêu thích'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.grid_view),
+            label: 'Danh mục',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.favorite),
+            label: 'Yêu thích',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Hồ sơ'),
         ],
       ),
@@ -127,7 +133,7 @@ class _HomeTabContent extends StatelessWidget {
                       featured.poster,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        return Container(color: AppColors.card);
+                        return Container(color: AppColors.cardOf(context));
                       },
                     ),
                     // Lớp 2: gradient tối dần xuống đáy.
@@ -159,7 +165,11 @@ class _HomeTabContent extends StatelessWidget {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              const Icon(Icons.play_arrow, color: Colors.black, size: 18),
+                              const Icon(
+                                Icons.play_arrow,
+                                color: Colors.black,
+                                size: 18,
+                              ),
                               const SizedBox(width: 4),
                               Container(
                                 padding: const EdgeInsets.symmetric(

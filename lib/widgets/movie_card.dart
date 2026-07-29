@@ -39,7 +39,7 @@ class MovieCard extends StatelessWidget {
             child: Container(
               height: 190,
               width: width,
-              color: AppColors.card,
+              color: AppColors.cardOf(context),
               // ASSETS: Image.asset đọc ảnh đã khai báo trong pubspec.yaml.
               // errorBuilder: nếu thiếu file ảnh, hiện icon thay vì crash app.
               child: imagePath != null && imagePath!.isNotEmpty
@@ -47,20 +47,20 @@ class MovieCard extends StatelessWidget {
                       imagePath!,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        return const Center(
+                        return Center(
                           child: Icon(
                             Icons.movie,
                             size: 40,
-                            color: AppColors.textFaded,
+                            color: AppColors.textFadedOf(context),
                           ),
                         );
                       },
                     )
-                  : const Center(
+                  : Center(
                       child: Icon(
                         Icons.movie,
                         size: 40,
-                        color: AppColors.textFaded,
+                        color: AppColors.textFadedOf(context),
                       ),
                     ),
             ),
@@ -70,9 +70,9 @@ class MovieCard extends StatelessWidget {
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: AppColors.text,
+              color: AppColors.textOf(context),
             ),
           ),
           // Row: xếp icon ngôi sao và số điểm theo chiều NGANG.
@@ -80,7 +80,10 @@ class MovieCard extends StatelessWidget {
             children: [
               const Icon(Icons.star, size: 14, color: Colors.amber),
               const SizedBox(width: 4),
-              Text(rating, style: const TextStyle(color: AppColors.textFaded)),
+              Text(
+                rating,
+                style: TextStyle(color: AppColors.textFadedOf(context)),
+              ),
             ],
           ),
         ],

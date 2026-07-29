@@ -46,9 +46,43 @@ class AppTheme {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
+  );
+
+  static ThemeData light = ThemeData(
+    scaffoldBackgroundColor: const Color(0xFFF5F5F5),
+    primaryColor: AppColors.primary,
+    fontFamily: 'Roboto',
+    brightness: Brightness.light,
+    useMaterial3: true,
+    textTheme: const TextTheme(
+      headlineSmall: TextStyle(
+        color: Color(0xFF111111),
+        fontSize: 22,
+        fontWeight: FontWeight.bold,
+      ),
+      bodyMedium: TextStyle(color: Color(0xFF666666), fontSize: 14),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: const Color(0xFFEDEDED),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.redAccent),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
   );

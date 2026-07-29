@@ -26,7 +26,7 @@ class MovieDetailPage extends StatelessWidget {
     final isFavorite = watchlist.isFavorite(movie.id);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.backgroundOf(context),
       body: Column(
         children: [
           Expanded(
@@ -49,8 +49,12 @@ class MovieDetailPage extends StatelessWidget {
                           movie.poster,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
-                            return const Center(
-                              child: Icon(Icons.movie, size: 80, color: AppColors.textFaded),
+                            return Center(
+                              child: Icon(
+                                Icons.movie,
+                                size: 80,
+                                color: AppColors.textFadedOf(context),
+                              ),
                             );
                           },
                         ),
@@ -61,7 +65,11 @@ class MovieDetailPage extends StatelessWidget {
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [Colors.black45, Colors.transparent, Colors.black87],
+                            colors: [
+                              Colors.black45,
+                              Colors.transparent,
+                              Colors.black87,
+                            ],
                             stops: [0.0, 0.4, 1.0],
                           ),
                         ),
@@ -80,8 +88,12 @@ class MovieDetailPage extends StatelessWidget {
                         top: 12,
                         right: 12,
                         child: _CircleIconButton(
-                          icon: isFavorite ? Icons.favorite : Icons.favorite_border,
-                          iconColor: isFavorite ? AppColors.primary : Colors.white,
+                          icon: isFavorite
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          iconColor: isFavorite
+                              ? AppColors.primary
+                              : Colors.white,
                           onTap: () => watchlist.toggleFavorite(movie.id),
                         ),
                       ),
@@ -112,10 +124,10 @@ class MovieDetailPage extends StatelessWidget {
                     children: [
                       Text(
                         movie.title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.text,
+                          color: AppColors.textOf(context),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -129,13 +141,13 @@ class MovieDetailPage extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.card,
+                              color: AppColors.cardOf(context),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
                               movie.genre,
-                              style: const TextStyle(
-                                color: AppColors.textFaded,
+                              style: TextStyle(
+                                color: AppColors.textFadedOf(context),
                                 fontSize: 12,
                               ),
                             ),
@@ -145,23 +157,25 @@ class MovieDetailPage extends StatelessWidget {
                           const SizedBox(width: 4),
                           Text(
                             '${movie.rating}  •  ${movie.duration}',
-                            style: const TextStyle(color: AppColors.textFaded),
+                            style: TextStyle(
+                              color: AppColors.textFadedOf(context),
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
-                      const Text(
+                      Text(
                         'Nội dung',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: AppColors.text,
+                          color: AppColors.textOf(context),
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         movie.overview,
-                        style: const TextStyle(
-                          color: AppColors.textFaded,
+                        style: TextStyle(
+                          color: AppColors.textFadedOf(context),
                           height: 1.5,
                         ),
                       ),

@@ -36,7 +36,7 @@ class _SplashPageState extends State<SplashPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.backgroundOf(context),
       // Center + Column: gom logo, tên app, vòng xoay loading và
       // canh chúng ra giữa màn hình theo chiều dọc.
       body: Center(
@@ -49,18 +49,21 @@ class _SplashPageState extends State<SplashPage> {
               color: AppColors.primary,
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'CineStream',
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
-                color: AppColors.text,
+                color: AppColors.textOf(context),
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Xem phim mọi lúc, mọi nơi',
-              style: TextStyle(fontSize: 13, color: AppColors.textFaded),
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textFadedOf(context),
+              ),
             ),
             const SizedBox(height: 32),
             const CircularProgressIndicator(color: AppColors.primary),

@@ -89,7 +89,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.backgroundOf(context),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -112,20 +112,20 @@ class _LoginPageState extends State<LoginPage> {
                       color: AppColors.primary,
                     ),
                     const SizedBox(height: 16),
-                    const Text(
+                    Text(
                       'Đăng nhập',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.text,
+                        color: AppColors.textOf(context),
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
+                    Text(
                       'Đăng nhập để tiếp tục xem phim',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textFaded),
+                      style: TextStyle(color: AppColors.textFadedOf(context)),
                     ),
                     const SizedBox(height: 32),
 
@@ -158,7 +158,9 @@ class _LoginPageState extends State<LoginPage> {
                                 : Icons.visibility,
                           ),
                           onPressed: () {
-                            setState(() => _obscurePassword = !_obscurePassword);
+                            setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            );
                           },
                         ),
                       ),
