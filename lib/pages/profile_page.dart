@@ -88,7 +88,7 @@ class ProfilePage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
                 Text(
-                  'Kiến thức Flutter ',
+                  'Kiến thức Flutterr ',
                   style: TextStyle(
                     color: AppColors.text,
                     fontSize: 16,
