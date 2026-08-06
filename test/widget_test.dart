@@ -18,6 +18,9 @@ void main() {
     expect(find.text('Xem phim mọi lúc, mọi nơi'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign in to continue'), findsOneWidget);
   });
 
   testWidgets('profile page contains a dark mode switch', (

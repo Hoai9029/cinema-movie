@@ -1,15 +1,27 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'data/theme_mode_state.dart';
 import 'data/watchlist_state.dart';
+import 'firebase_options.dart';
 import 'pages/splash_page.dart';
 
 // Điểm bắt đầu của ứng dụng Flutter.
 // ChangeNotifierProvider tạo WatchlistState MỘT LẦN ở gốc cây
 // widget, để mọi màn hình con (Trang chủ, Chi tiết phim, Yêu
 // thích...) đều đọc/ghi được cùng một dữ liệu yêu thích.
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (error) {
+    debugPrint('Firebase initialization skipped: $error');
+  }
+
   runApp(
     MultiProvider(
       providers: [

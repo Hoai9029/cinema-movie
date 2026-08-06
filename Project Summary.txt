@@ -1,0 +1,80 @@
+Project Summary - CineStream
+
+Overview:
+- CineStream is a Flutter movie streaming/demo application.
+- It uses Firebase Authentication for email/password login and Provider for state management.
+- The app supports dark/light theme switching and a multi-tab navigation layout.
+
+Core Architecture:
+- Entry point: lib/main.dart
+  - Initializes Firebase using firebase_options.dart.
+  - Sets up MultiProvider with WatchlistState and ThemeModeState.
+  - Launches the app with MaterialApp and dynamic theme selection.
+
+Screens and Navigation:
+- SplashPage (lib/pages/splash_page.dart)
+  - Displays app logo and loading indicator for 2 seconds.
+  - Navigates automatically to LoginPage.
+- LoginPage (lib/pages/login_page.dart)
+  - Allows users to sign in or register with email and password.
+  - Uses FirebaseAuthRepository for authentication.
+- HomePage (lib/pages/home_page.dart)
+  - Main app shell with BottomNavigationBar and four tabs:
+    - Home
+    - Categories
+    - Favorites
+    - Profile
+- CategoriesPage (lib/pages/categories_page.dart)
+  - Displays a grid of movies grouped by genre.
+  - Uses fakeMovies from lib/data/fake_movies.dart.
+- FavoritesPage (lib/pages/favorites_page.dart)
+  - Shows movies marked as favorites via WatchlistState.
+- ProfilePage (lib/pages/profile_page.dart)
+  - Displays static profile info, watch history, and a theme toggle.
+
+Movie Details and Playback:
+- MovieDetailPage (lib/pages/movie_detail_page.dart)
+  - Shows movie poster, title, genre, rating, duration, and overview.
+  - Allows toggling favorite status and navigating to WatchPage.
+- WatchPage (lib/pages/watch_page.dart)
+  - Simulates a movie playback experience with a timer and seek slider.
+
+Data and Services:
+- Movie model: lib/models/movie.dart
+  - Defines movie properties such as id, title, poster, duration, rating, overview, and genre.
+- Fake movie data: lib/data/fake_movies.dart
+  - Provides sample movies for categories and favorites screens.
+- TMDB repository: lib/data/repositories/tmdb_movie_repository.dart
+  - Fetches trending movies from TMDB using an API key.
+- TMDB config: lib/config/tmdb_secrets.dart
+  - Stores TMDB API key and access token.
+- Firebase Auth repository: lib/data/auth/firebase_auth_repository.dart
+  - Handles sign in, registration, sign out, and auth state changes.
+- App state:
+  - WatchlistState (lib/data/watchlist_state.dart): manages favorite movie IDs.
+  - ThemeModeState (lib/data/theme_mode_state.dart): manages light/dark theme state.
+
+Theme and UI:
+- App theming: lib/core/theme/app_theme.dart
+  - Defines dark and light ThemeData.
+- Colors and shared styling are centralized in lib/core/theme/app_colors.dart.
+- Reusable widgets:
+  - MovieCard (lib/widgets/movie_card.dart)
+  - ResponsiveContainer (lib/widgets/responsive_container.dart)
+  - SectionTitle (lib/widgets/section_title.dart)
+
+Dependencies:
+- provider
+- firebase_core
+- firebase_auth
+- http
+- cupertino_icons
+
+Assets:
+- assets/images/ (movie posters, avatar, etc.)
+- assets/fonts/Roboto-Regular.ttf
+
+Notes:
+- The app is primarily a movie browsing/demo app rather than a full streaming service.
+- It combines remote TMDB data for the home screen with local fake movie data for other sections.
+- User authentication requires Firebase configuration to work properly.
