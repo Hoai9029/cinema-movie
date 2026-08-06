@@ -6,6 +6,7 @@ import 'data/theme_mode_state.dart';
 import 'data/watchlist_state.dart';
 import 'firebase_options.dart';
 import 'pages/splash_page.dart';
+import 'routes/app_router.dart';
 
 // Điểm bắt đầu của ứng dụng Flutter.
 // ChangeNotifierProvider tạo WatchlistState MỘT LẦN ở gốc cây
@@ -52,7 +53,8 @@ class MyApp extends StatelessWidget {
       title: 'CineStream',
       debugShowCheckedModeBanner: false,
       theme: themeState.isDark ? AppTheme.dark : AppTheme.light,
-      home: const SplashPage(),
+      initialRoute: AppRoutes.splash,
+      onGenerateRoute: AppRouter.generateRoute,
     );
   }
 }

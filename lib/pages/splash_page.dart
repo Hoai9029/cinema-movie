@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import 'login_page.dart';
+import '../routes/app_router.dart';
 
 // ============================================================
 // KHÁI NIỆM: STATEFULWIDGET + VÒNG ĐỜI (LIFECYCLE)
@@ -26,10 +27,7 @@ class _SplashPageState extends State<SplashPage> {
       // không trước khi điều hướng, tránh lỗi nếu người dùng đã
       // thoát màn hình trước khi 2 giây trôi qua.
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginPage()),
-      );
+      Navigator.pushReplacementNamed(context, AppRoutes.login);
     });
   }
 

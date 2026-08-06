@@ -5,6 +5,7 @@ import '../data/fake_movies.dart';
 import '../data/watchlist_state.dart';
 import '../widgets/responsive_container.dart';
 import 'movie_detail_page.dart';
+import '../routes/app_router.dart';
 
 // ============================================================
 // KHÁI NIỆM: LAYOUT — LISTVIEW (dọc) + STATE ĐƯỢC CHIA SẺ
@@ -66,11 +67,10 @@ class FavoritesPage extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(14),
               onTap: () {
-                Navigator.push(
+                Navigator.pushNamed(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => MovieDetailPage(movie: movie),
-                  ),
+                  '${AppRoutes.movie}/${movie.id}',
+                  arguments: movie,
                 );
               },
               child: Container(

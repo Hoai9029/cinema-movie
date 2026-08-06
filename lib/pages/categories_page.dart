@@ -3,6 +3,7 @@ import '../core/theme/app_colors.dart';
 import '../data/fake_movies.dart';
 import '../widgets/responsive_container.dart';
 import 'movie_detail_page.dart';
+import '../routes/app_router.dart';
 
 // ============================================================
 // KHÁI NIỆM: RESPONSIVE UI (áp dụng cho lưới ảnh - GridView)
@@ -61,11 +62,10 @@ class CategoriesPage extends StatelessWidget {
                   final movie = fakeMovies[index];
                   return GestureDetector(
                     onTap: () {
-                      Navigator.push(
+                      Navigator.pushNamed(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => MovieDetailPage(movie: movie),
-                        ),
+                        '${AppRoutes.movie}/${movie.id}',
+                        arguments: movie,
                       );
                     },
                     child: Column(

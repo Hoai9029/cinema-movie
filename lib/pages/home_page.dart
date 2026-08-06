@@ -9,6 +9,7 @@ import 'categories_page.dart';
 import 'favorites_page.dart';
 import 'movie_detail_page.dart';
 import 'profile_page.dart';
+import '../routes/app_router.dart';
 
 // ============================================================
 // KHÁI NIỆM: STATEFULWIDGET
@@ -129,11 +130,10 @@ class _HomeTabContentState extends State<_HomeTabContent> {
             padding: const EdgeInsets.all(16),
             children: [
               GestureDetector(
-                onTap: () => Navigator.push(
+                onTap: () => Navigator.pushNamed(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => MovieDetailPage(movie: featured),
-                  ),
+                  '${AppRoutes.movie}/${featured.id}',
+                  arguments: featured,
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
@@ -216,11 +216,10 @@ class _HomeTabContentState extends State<_HomeTabContent> {
                     final movie = movies[index];
                     return GestureDetector(
                       onTap: () {
-                        Navigator.push(
+                        Navigator.pushNamed(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => MovieDetailPage(movie: movie),
-                          ),
+                          '${AppRoutes.movie}/${movie.id}',
+                          arguments: movie,
                         );
                       },
                       child: MovieCard(

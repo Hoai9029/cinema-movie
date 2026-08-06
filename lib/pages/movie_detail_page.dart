@@ -4,6 +4,7 @@ import '../core/theme/app_colors.dart';
 import '../data/watchlist_state.dart';
 import '../models/movie.dart';
 import 'watch_page.dart';
+import '../routes/app_router.dart';
 
 class MovieDetailPage extends StatelessWidget {
   final Movie movie;
@@ -72,11 +73,10 @@ class MovieDetailPage extends StatelessWidget {
                           size: 64,
                           iconSize: 32,
                           onTap: () {
-                            Navigator.push(
+                            Navigator.pushNamed(
                               context,
-                              MaterialPageRoute(
-                                builder: (context) => WatchPage(movie: movie),
-                              ),
+                              '${AppRoutes.watch}/${movie.id}',
+                              arguments: movie,
                             );
                           },
                         ),
@@ -156,11 +156,10 @@ class MovieDetailPage extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  Navigator.push(
+                  Navigator.pushNamed(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => WatchPage(movie: movie),
-                    ),
+                    '${AppRoutes.watch}/${movie.id}',
+                    arguments: movie,
                   );
                 },
                 icon: const Icon(Icons.play_arrow),

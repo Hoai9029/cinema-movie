@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../data/auth/firebase_auth_repository.dart';
 import 'home_page.dart';
+import '../routes/app_router.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -73,10 +74,7 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
-      );
+      Navigator.pushReplacementNamed(context, AppRoutes.home);
     } on firebase_auth.FirebaseAuthException catch (error) {
       if (!mounted) return;
       setState(() {
