@@ -115,6 +115,10 @@ class _HomeTabContentState extends State<_HomeTabContent> {
   // Map<tên thể loại, danh sách phim thuộc thể loại đó>.
   late Future<Map<String, List<Movie>>> _futureGenreMovies;
 
+  // Chỉ số banner đang hiển thị, dùng để tô đậm dot indicator.
+  int _currentBannerIndex = 0;
+  late final PageController _bannerController;
+
   // Danh sách thể loại muốn hiển thị (id thể loại chuẩn của TMDB).
   // Có thể thay đổi/mở rộng tuỳ nhu cầu app.
   static const Map<int, String> _genresToShow = {
@@ -128,9 +132,16 @@ class _HomeTabContentState extends State<_HomeTabContent> {
   @override
   void initState() {
     super.initState();
+    _bannerController = PageController(viewportFraction: 0.9);
     _futureMovies = _repository.fetchTrendingMovies();
     // MỚI: gọi song song, không phụ thuộc / không đổi _futureMovies.
     _futureGenreMovies = _fetchMoviesGroupedByGenre();
+  }
+
+  @override
+  void dispose() {
+    _bannerController.dispose();
+    super.dispose();
   }
 
   // MỚI: gọi TMDB để lấy phim tương tự, nhóm theo từng thể loại.
@@ -172,7 +183,11 @@ class _HomeTabContentState extends State<_HomeTabContent> {
           }
 
           final movies = snapshot.data!;
-          final featured = movies.first;
+
+          // MỚI: lấy vài phim đầu để làm các banner trượt qua lại
+          // (thay vì chỉ 1 banner tĩnh như trước). Vẫn lấy từ cùng
+          // danh sách movies cũ, không gọi thêm API.
+          final banners = movies.take(5).toList();
 
           // Chia danh sách gốc thành 2 phần để khớp với ảnh mẫu:
           // "Trending" và "Recommended For You". Không gọi thêm
@@ -185,80 +200,41 @@ class _HomeTabContentState extends State<_HomeTabContent> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              GestureDetector(
-                onTap: () => Navigator.pushNamed(
-                  context,
-                  '${AppRoutes.movie}/${featured.id}',
-                  arguments: featured,
+              SizedBox(
+                height: 220,
+                child: PageView.builder(
+                  controller: _bannerController,
+                  itemCount: banners.length,
+                  onPageChanged: (index) {
+                    setState(() => _currentBannerIndex = index);
+                  },
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: _buildBannerCard(context, banners[index]),
+                    );
+                  },
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: SizedBox(
-                    height: 220,
-                    width: double.infinity,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        _buildPoster(featured.poster, context),
-                        Container(
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Colors.transparent, Colors.black87],
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: 16,
-                          right: 16,
-                          bottom: 16,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                featured.title,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.play_arrow,
-                                    color: Colors.black,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Text(
-                                      'Xem ngay',
-                                      style: TextStyle(
-                                        color: Colors.black,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+              ),
+              const SizedBox(height: 12),
+              // ---- MỚI: dot indicator cho banner ----
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(banners.length, (index) {
+                  final isActive = index == _currentBannerIndex;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: isActive ? 18 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? AppColors.primary
+                          : AppColors.textFadedOf(context),
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                  ),
-                ),
+                  );
+                }),
               ),
               const SizedBox(height: 24),
 
@@ -348,6 +324,87 @@ class _HomeTabContentState extends State<_HomeTabContent> {
     );
   }
 
+  // MỚI: nội dung 1 banner trong carousel - y hệt UI banner cũ
+  // (Stack + gradient + tiêu đề + nút "Xem ngay"), chỉ tách ra
+  // thành hàm riêng để CarouselSlider.builder dùng lại cho mỗi item.
+  Widget _buildBannerCard(BuildContext context, Movie movie) {
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(
+        context,
+        '${AppRoutes.movie}/${movie.id}',
+        arguments: movie,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: SizedBox(
+          height: 220,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildPoster(movie.poster, context),
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black87],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      movie.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.play_arrow,
+                          color: Colors.black,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            'Xem ngay',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPoster(String posterPath, BuildContext context) {
     if (posterPath.startsWith('http')) {
       return Image.network(
@@ -372,6 +429,14 @@ class _HomeTabContentState extends State<_HomeTabContent> {
     return Container(color: AppColors.cardOf(context));
   }
 }
+
+// ============================================================
+// GHI CHÚ: thêm dòng sau vào pubspec.yaml (mục dependencies) rồi
+// chạy `flutter pub get` để dùng được carousel_slider:
+//
+//   dependencies:
+//     carousel_slider: ^4.2.1
+// ============================================================
 
 // ============================================================
 // GHI CHÚ: cần thêm vào TmdbMovieRepository (file
