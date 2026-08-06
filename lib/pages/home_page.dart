@@ -86,8 +86,19 @@ class _HomePageState extends State<HomePage> {
 // ============================================================
 // Nội dung của tab "Trang chủ": banner nổi bật + các hàng phim
 // theo thể loại. Tách ra thành widget riêng cho HomePage đỡ rối.
-// StatelessWidget vì bản thân nó không tự thay đổi (chỉ hiển thị
-// dữ liệu tĩnh từ fakeMovies).
+//
+// CẬP NHẬT UI (theo ảnh mẫu):
+//  - Banner nổi bật (giữ nguyên logic cũ)
+//  - "Trending"            -> hàng ngang, lấy từ _futureMovies (giữ
+//                             nguyên nguồn dữ liệu / logic fetch cũ)
+//  - "Recommended For You" -> hàng ngang thứ hai, cũng lấy từ cùng
+//                             _futureMovies nhưng là phần còn lại
+//                             của danh sách (không gọi thêm API mới,
+//                             không đổi logic fetch ban đầu)
+//  - Bên dưới "Recommended For You": danh sách phim TƯƠNG TỰ, được
+//    NHÓM THEO THỂ LOẠI (genre), lấy dữ liệu thật từ TMDB thông qua
+//    repository (phần mở rộng logic MỚI, tách biệt hoàn toàn khỏi
+//    _futureMovies cũ để không ảnh hưởng hành vi hiện có).
 // ============================================================
 class _HomeTabContent extends StatefulWidget {
   const _HomeTabContent();
@@ -100,10 +111,47 @@ class _HomeTabContentState extends State<_HomeTabContent> {
   final TmdbMovieRepository _repository = TmdbMovieRepository();
   late Future<List<Movie>> _futureMovies;
 
+  // ---- MỚI: dữ liệu "phim tương tự theo thể loại" ----
+  // Map<tên thể loại, danh sách phim thuộc thể loại đó>.
+  late Future<Map<String, List<Movie>>> _futureGenreMovies;
+
+  // Danh sách thể loại muốn hiển thị (id thể loại chuẩn của TMDB).
+  // Có thể thay đổi/mở rộng tuỳ nhu cầu app.
+  static const Map<int, String> _genresToShow = {
+    28: 'Hành động', // Action
+    35: 'Hài', // Comedy
+    18: 'Chính kịch', // Drama
+    10749: 'Lãng mạn', // Romance
+    14: 'Viễn tưởng', // Fantasy
+  };
+
   @override
   void initState() {
     super.initState();
     _futureMovies = _repository.fetchTrendingMovies();
+    // MỚI: gọi song song, không phụ thuộc / không đổi _futureMovies.
+    _futureGenreMovies = _fetchMoviesGroupedByGenre();
+  }
+
+  // MỚI: gọi TMDB để lấy phim tương tự, nhóm theo từng thể loại.
+  // Dùng repository.fetchMoviesByGenre(genreId) - xem ghi chú cuối
+  // file để thêm hàm này vào TmdbMovieRepository nếu chưa có.
+  Future<Map<String, List<Movie>>> _fetchMoviesGroupedByGenre() async {
+    final result = <String, List<Movie>>{};
+
+    for (final entry in _genresToShow.entries) {
+      try {
+        final movies = await _repository.fetchMoviesByGenre(entry.key);
+        if (movies.isNotEmpty) {
+          result[entry.value] = movies;
+        }
+      } catch (_) {
+        // Bỏ qua thể loại lỗi, không làm sập cả trang.
+        continue;
+      }
+    }
+
+    return result;
   }
 
   @override
@@ -125,6 +173,14 @@ class _HomeTabContentState extends State<_HomeTabContent> {
 
           final movies = snapshot.data!;
           final featured = movies.first;
+
+          // Chia danh sách gốc thành 2 phần để khớp với ảnh mẫu:
+          // "Trending" và "Recommended For You". Không gọi thêm
+          // API, không đổi logic fetch ban đầu.
+          final trending = movies.take(6).toList();
+          final recommended = movies.length > 6
+              ? movies.skip(6).take(6).toList()
+              : movies;
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -205,37 +261,90 @@ class _HomeTabContentState extends State<_HomeTabContent> {
                 ),
               ),
               const SizedBox(height: 24),
-              SectionTitle(title: 'Phim mới nhất'),
+
+              // ---- "Trending" (thay cho "Phim mới nhất" cũ, theo ảnh mẫu) ----
+              SectionTitle(title: 'Trending'),
               const SizedBox(height: 12),
-              SizedBox(
-                height: 260,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: movies.length,
-                  itemBuilder: (context, index) {
-                    final movie = movies[index];
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.pushNamed(
-                          context,
-                          '${AppRoutes.movie}/${movie.id}',
-                          arguments: movie,
-                        );
-                      },
-                      child: MovieCard(
-                        title: movie.title,
-                        rating: movie.rating.toStringAsFixed(1),
-                        imagePath: movie.poster,
-                      ),
-                    );
-                  },
-                ),
-              ),
+              _buildMovieRow(context, trending),
               const SizedBox(height: 24),
+
+              // ---- "Recommended For You" (hàng thứ 2 trong ảnh mẫu) ----
+              SectionTitle(title: 'Recommended For You'),
+              const SizedBox(height: 12),
+              _buildMovieRow(context, recommended),
+              const SizedBox(height: 24),
+
+              // ---- MỚI: danh sách phim tương tự, nhóm theo thể loại ----
+              // Đặt ngay dưới "Recommended For You" như yêu cầu.
+              _buildGenreSections(context),
             ],
           );
         },
       ),
+    );
+  }
+
+  // Hàng ngang chứa các MovieCard - dùng chung cho Trending /
+  // Recommended / các nhóm thể loại để không lặp code.
+  Widget _buildMovieRow(BuildContext context, List<Movie> movies) {
+    return SizedBox(
+      height: 260,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: movies.length,
+        itemBuilder: (context, index) {
+          final movie = movies[index];
+          return GestureDetector(
+            onTap: () {
+              Navigator.pushNamed(
+                context,
+                '${AppRoutes.movie}/${movie.id}',
+                arguments: movie,
+              );
+            },
+            child: MovieCard(
+              title: movie.title,
+              rating: movie.rating.toStringAsFixed(1),
+              imagePath: movie.poster,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // MỚI: khối "phim tương tự theo thể loại", lấy dữ liệu thật từ
+  // TMDB (fetchMoviesByGenre). Mỗi thể loại là một SectionTitle +
+  // một hàng ngang riêng, y hệt kiểu Trending/Recommended.
+  Widget _buildGenreSections(BuildContext context) {
+    return FutureBuilder<Map<String, List<Movie>>>(
+      future: _futureGenreMovies,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final genreMovies = snapshot.data;
+        if (genreMovies == null || genreMovies.isEmpty) {
+          // Không chặn phần còn lại của trang nếu TMDB lỗi/rỗng.
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final genreEntry in genreMovies.entries) ...[
+              SectionTitle(title: 'Tương tự - ${genreEntry.key}'),
+              const SizedBox(height: 12),
+              _buildMovieRow(context, genreEntry.value),
+              const SizedBox(height: 24),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -263,3 +372,26 @@ class _HomeTabContentState extends State<_HomeTabContent> {
     return Container(color: AppColors.cardOf(context));
   }
 }
+
+// ============================================================
+// GHI CHÚ: cần thêm vào TmdbMovieRepository (file
+// data/repositories/tmdb_movie_repository.dart) nếu repository
+// của bạn CHƯA có hàm lấy phim theo thể loại. Hàm này gọi endpoint
+// TMDB Discover, tương tự cách fetchTrendingMovies() hiện có của
+// bạn đang gọi TMDB - chỉ đổi endpoint và tham số with_genres.
+//
+// Future<List<Movie>> fetchMoviesByGenre(int genreId, {int page = 1}) async {
+//   final uri = Uri.parse(
+//     'https://api.themoviedb.org/3/discover/movie'
+//     '?api_key=$apiKey&language=vi-VN&with_genres=$genreId'
+//     '&sort_by=popularity.desc&page=$page',
+//   );
+//   final response = await http.get(uri);
+//   if (response.statusCode != 200) {
+//     throw Exception('Không thể tải phim theo thể loại $genreId');
+//   }
+//   final data = jsonDecode(response.body) as Map<String, dynamic>;
+//   final results = data['results'] as List<dynamic>;
+//   return results.map((json) => Movie.fromJson(json)).toList();
+// }
+// ============================================================
