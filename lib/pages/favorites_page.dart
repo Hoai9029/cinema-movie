@@ -5,6 +5,7 @@ import '../data/fake_movies.dart';
 import '../data/watchlist_state.dart';
 import '../widgets/responsive_container.dart';
 import 'movie_detail_page.dart';
+import '../routes/app_router.dart';
 
 // ============================================================
 // KHÁI NIỆM: LAYOUT — LISTVIEW (dọc) + STATE ĐƯỢC CHIA SẺ
@@ -25,21 +26,28 @@ class FavoritesPage extends StatelessWidget {
 
     if (favoriteMovies.isEmpty) {
       // Trạng thái rỗng: Column căn giữa gồm icon + 2 dòng chữ.
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.favorite_border, size: 56, color: AppColors.textFaded),
-            SizedBox(height: 12),
+            Icon(
+              Icons.favorite_border,
+              size: 56,
+              color: AppColors.textFadedOf(context),
+            ),
+            const SizedBox(height: 12),
             Text(
               'Chưa có phim yêu thích',
-              style: TextStyle(color: AppColors.text, fontSize: 16),
+              style: TextStyle(color: AppColors.textOf(context), fontSize: 16),
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
               'Bấm biểu tượng trái tim ở trang chi tiết phim để lưu vào đây',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textFaded, fontSize: 12),
+              style: TextStyle(
+                color: AppColors.textFadedOf(context),
+                fontSize: 12,
+              ),
             ),
           ],
         ),
@@ -59,17 +67,16 @@ class FavoritesPage extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(14),
               onTap: () {
-                Navigator.push(
+                Navigator.pushNamed(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => MovieDetailPage(movie: movie),
-                  ),
+                  '${AppRoutes.movie}/${movie.id}',
+                  arguments: movie,
                 );
               },
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.card,
+                  color: AppColors.cardOf(context),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 // Row: ảnh poster nhỏ bên trái + thông tin bên phải.
@@ -86,8 +93,11 @@ class FavoritesPage extends StatelessWidget {
                           return Container(
                             width: 60,
                             height: 80,
-                            color: AppColors.surface,
-                            child: const Icon(Icons.movie, color: AppColors.textFaded),
+                            color: AppColors.surfaceOf(context),
+                            child: Icon(
+                              Icons.movie,
+                              color: AppColors.textFadedOf(context),
+                            ),
                           );
                         },
                       ),
@@ -101,16 +111,16 @@ class FavoritesPage extends StatelessWidget {
                         children: [
                           Text(
                             movie.title,
-                            style: const TextStyle(
-                              color: AppColors.text,
+                            style: TextStyle(
+                              color: AppColors.textOf(context),
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             '${movie.genre} • ${movie.duration}',
-                            style: const TextStyle(
-                              color: AppColors.textFaded,
+                            style: TextStyle(
+                              color: AppColors.textFadedOf(context),
                               fontSize: 12,
                             ),
                           ),
@@ -118,7 +128,10 @@ class FavoritesPage extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.favorite, color: AppColors.primary),
+                      icon: const Icon(
+                        Icons.favorite,
+                        color: AppColors.primary,
+                      ),
                       onPressed: () => watchlist.toggleFavorite(movie.id),
                     ),
                   ],

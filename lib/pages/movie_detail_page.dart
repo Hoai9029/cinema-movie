@@ -4,40 +4,25 @@ import '../core/theme/app_colors.dart';
 import '../data/watchlist_state.dart';
 import '../models/movie.dart';
 import 'watch_page.dart';
+import '../routes/app_router.dart';
 
-// ============================================================
-// KHÁI NIỆM: STATELESSWIDGET nhận dữ liệu qua constructor
-// MovieDetailPage không tự lưu trạng thái nội bộ nào (trạng thái
-// yêu thích được lưu ở WatchlistState dùng chung, không phải ở
-// đây) nên vẫn có thể là StatelessWidget dù giao diện "trông"
-// động — vì phần động đó do widget CHA (Provider) quản lý, còn
-// widget này chỉ ĐỌC và HIỂN THỊ dữ liệu được truyền vào.
-// ============================================================
 class MovieDetailPage extends StatelessWidget {
-  final Movie movie; // Navigation: dữ liệu được truyền từ màn trước qua đây.
+  final Movie movie;
 
   const MovieDetailPage({super.key, required this.movie});
 
   @override
   Widget build(BuildContext context) {
-    // context.watch: nếu trạng thái yêu thích đổi (do người dùng
-    // bấm tim ở MÀN KHÁC), icon trái tim ở đây cũng tự cập nhật.
     final watchlist = context.watch<WatchlistState>();
     final isFavorite = watchlist.isFavorite(movie.id);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.backgroundOf(context),
       body: Column(
         children: [
           Expanded(
             child: ListView(
               children: [
-                // ------------------------------------------------
-                // KHÁI NIỆM: LAYOUT — STACK
-                // Ảnh nền phim + nút back + nút yêu thích + nút play
-                // đều chồng lên nhau trên cùng một vùng ảnh, mỗi
-                // nút được định vị bằng Positioned ở một góc riêng.
-                // ------------------------------------------------
                 SizedBox(
                   height: 300,
                   child: Stack(
@@ -45,28 +30,22 @@ class MovieDetailPage extends StatelessWidget {
                     children: [
                       Container(
                         color: AppColors.card,
-                        child: Image.asset(
-                          movie.poster,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Center(
-                              child: Icon(Icons.movie, size: 80, color: AppColors.textFaded),
-                            );
-                          },
-                        ),
+                        child: _buildPoster(movie.poster, context),
                       ),
-                      // Gradient để nút/icon phía trên luôn nổi rõ.
                       Container(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [Colors.black45, Colors.transparent, Colors.black87],
+                            colors: [
+                              Colors.black45,
+                              Colors.transparent,
+                              Colors.black87,
+                            ],
                             stops: [0.0, 0.4, 1.0],
                           ),
                         ),
                       ),
-                      // Nút back, góc trên-trái.
                       Positioned(
                         top: 12,
                         left: 12,
@@ -75,28 +54,29 @@ class MovieDetailPage extends StatelessWidget {
                           onTap: () => Navigator.pop(context),
                         ),
                       ),
-                      // Nút yêu thích, góc trên-phải.
                       Positioned(
                         top: 12,
                         right: 12,
                         child: _CircleIconButton(
-                          icon: isFavorite ? Icons.favorite : Icons.favorite_border,
-                          iconColor: isFavorite ? AppColors.primary : Colors.white,
+                          icon: isFavorite
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          iconColor: isFavorite
+                              ? AppColors.primary
+                              : Colors.white,
                           onTap: () => watchlist.toggleFavorite(movie.id),
                         ),
                       ),
-                      // Nút play lớn, chính giữa ảnh.
                       Center(
                         child: _CircleIconButton(
                           icon: Icons.play_arrow,
                           size: 64,
                           iconSize: 32,
                           onTap: () {
-                            Navigator.push(
+                            Navigator.pushNamed(
                               context,
-                              MaterialPageRoute(
-                                builder: (context) => WatchPage(movie: movie),
-                              ),
+                              '${AppRoutes.watch}/${movie.id}',
+                              arguments: movie,
                             );
                           },
                         ),
@@ -104,7 +84,6 @@ class MovieDetailPage extends StatelessWidget {
                     ],
                   ),
                 ),
-
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -112,15 +91,13 @@ class MovieDetailPage extends StatelessWidget {
                     children: [
                       Text(
                         movie.title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.text,
+                          color: AppColors.textOf(context),
                         ),
                       ),
                       const SizedBox(height: 8),
-                      // Row: nhãn thể loại + rating + thời lượng nằm
-                      // cạnh nhau theo chiều ngang.
                       Row(
                         children: [
                           Container(
@@ -129,13 +106,13 @@ class MovieDetailPage extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.card,
+                              color: AppColors.cardOf(context),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
                               movie.genre,
-                              style: const TextStyle(
-                                color: AppColors.textFaded,
+                              style: TextStyle(
+                                color: AppColors.textFadedOf(context),
                                 fontSize: 12,
                               ),
                             ),
@@ -145,23 +122,25 @@ class MovieDetailPage extends StatelessWidget {
                           const SizedBox(width: 4),
                           Text(
                             '${movie.rating}  •  ${movie.duration}',
-                            style: const TextStyle(color: AppColors.textFaded),
+                            style: TextStyle(
+                              color: AppColors.textFadedOf(context),
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
-                      const Text(
+                      Text(
                         'Nội dung',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: AppColors.text,
+                          color: AppColors.textOf(context),
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         movie.overview,
-                        style: const TextStyle(
-                          color: AppColors.textFaded,
+                        style: TextStyle(
+                          color: AppColors.textFadedOf(context),
                           height: 1.5,
                         ),
                       ),
@@ -171,21 +150,16 @@ class MovieDetailPage extends StatelessWidget {
               ],
             ),
           ),
-
-          // Nút "Xem ngay" cố định ở đáy màn hình.
           Padding(
             padding: const EdgeInsets.all(16),
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  // Navigation: đẩy sang màn Xem phim, mang theo dữ
-                  // liệu `movie` để WatchPage biết đang phát phim nào.
-                  Navigator.push(
+                  Navigator.pushNamed(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => WatchPage(movie: movie),
-                    ),
+                    '${AppRoutes.watch}/${movie.id}',
+                    arguments: movie,
                   );
                 },
                 icon: const Icon(Icons.play_arrow),
@@ -197,10 +171,38 @@ class MovieDetailPage extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildPoster(String posterPath, BuildContext context) {
+    if (posterPath.startsWith('http')) {
+      return Image.network(
+        posterPath,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _posterFallback(context);
+        },
+      );
+    }
+
+    if (posterPath.isNotEmpty) {
+      return Image.asset(
+        posterPath,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _posterFallback(context);
+        },
+      );
+    }
+
+    return _posterFallback(context);
+  }
+
+  Widget _posterFallback(BuildContext context) {
+    return Center(
+      child: Icon(Icons.movie, size: 80, color: AppColors.textFadedOf(context)),
+    );
+  }
 }
 
-// Nút tròn nổi trên ảnh (dùng cho back / yêu thích / play).
-// Tách widget riêng vì dùng lại 3 lần ở trên với style khác nhau.
 class _CircleIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;

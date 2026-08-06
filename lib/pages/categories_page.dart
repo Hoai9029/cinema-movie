@@ -3,6 +3,7 @@ import '../core/theme/app_colors.dart';
 import '../data/fake_movies.dart';
 import '../widgets/responsive_container.dart';
 import 'movie_detail_page.dart';
+import '../routes/app_router.dart';
 
 // ============================================================
 // KHÁI NIỆM: RESPONSIVE UI (áp dụng cho lưới ảnh - GridView)
@@ -29,19 +30,22 @@ class CategoriesPage extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const Text(
+              Text(
                 'Tất cả phim',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.text,
+                  color: AppColors.textOf(context),
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 'Đang hiện ${fakeMovies.length} phim theo dạng lưới '
                 '($columns cột trên màn hình này)',
-                style: const TextStyle(color: AppColors.textFaded, fontSize: 12),
+                style: TextStyle(
+                  color: AppColors.textFadedOf(context),
+                  fontSize: 12,
+                ),
               ),
               const SizedBox(height: 16),
               GridView.builder(
@@ -58,11 +62,10 @@ class CategoriesPage extends StatelessWidget {
                   final movie = fakeMovies[index];
                   return GestureDetector(
                     onTap: () {
-                      Navigator.push(
+                      Navigator.pushNamed(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => MovieDetailPage(movie: movie),
-                        ),
+                        '${AppRoutes.movie}/${movie.id}',
+                        arguments: movie,
                       );
                     },
                     child: Column(
@@ -72,14 +75,17 @@ class CategoriesPage extends StatelessWidget {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: Container(
-                              color: AppColors.card,
+                              color: AppColors.cardOf(context),
                               width: double.infinity,
                               child: Image.asset(
                                 movie.poster,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) {
-                                  return const Center(
-                                    child: Icon(Icons.movie, color: AppColors.textFaded),
+                                  return Center(
+                                    child: Icon(
+                                      Icons.movie,
+                                      color: AppColors.textFadedOf(context),
+                                    ),
                                   );
                                 },
                               ),
@@ -91,8 +97,8 @@ class CategoriesPage extends StatelessWidget {
                           movie.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.text,
+                          style: TextStyle(
+                            color: AppColors.textOf(context),
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
                           ),
@@ -101,8 +107,8 @@ class CategoriesPage extends StatelessWidget {
                           movie.genre,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.textFaded,
+                          style: TextStyle(
+                            color: AppColors.textFadedOf(context),
                             fontSize: 11,
                           ),
                         ),
