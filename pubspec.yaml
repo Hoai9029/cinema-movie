@@ -38,6 +38,11 @@ dependencies:
   firebase_core: ^4.13.0
   firebase_auth: ^6.5.7
   http: ^1.6.0
+  dio: ^5.9.0
+  retrofit: ^4.7.2
+  json_annotation: ^4.9.0
+  flutter_bloc: ^9.1.1
+  equatable: ^2.0.7
 
 dev_dependencies:
   flutter_test:
@@ -49,6 +54,9 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  build_runner: ^2.4.13
+  retrofit_generator: ^10.2.8
+  json_serializable: ^6.9.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -30,7 +30,53 @@ class TmdbMovieRepository {
       throw Exception('TMDB request failed: ${response.statusCode}');
     }
 
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return _mapTmdbMovies(response.body);
+  }
+
+  Future<List<Movie>> fetchMoviesByGenre(int genreId, {int page = 1}) async {
+    final uri = Uri.parse(
+      '$_baseUrl/discover/movie'
+      '?api_key=$_apiKey&language=vi-VN&with_genres=$genreId'
+      '&sort_by=popularity.desc&page=$page',
+    );
+    final response = await _client.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $_accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('TMDB request failed: ${response.statusCode}');
+    }
+
+    return _mapTmdbMovies(response.body);
+  }
+
+  Future<List<Movie>> searchMovies(String query, {int page = 1}) async {
+    final uri = Uri.parse(
+      '$_baseUrl/search/movie'
+      '?api_key=$_apiKey&language=vi-VN&query=${Uri.encodeQueryComponent(query)}'
+      '&page=$page',
+    );
+    final response = await _client.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $_accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('TMDB request failed: ${response.statusCode}');
+    }
+
+    return _mapTmdbMovies(response.body);
+  }
+
+  List<Movie> _mapTmdbMovies(String responseBody) {
+    final json = jsonDecode(responseBody) as Map<String, dynamic>;
     final movies = TmdbMovieResponse.fromJson(json).results;
 
     return movies
