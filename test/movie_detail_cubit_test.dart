@@ -1,3 +1,4 @@
+import 'package:cinema_movie/cubit/movie_detail_bundle.dart';
 import 'package:cinema_movie/cubit/movie_detail_cubit.dart';
 import 'package:cinema_movie/cubit/movie_detail_state.dart';
 import 'package:cinema_movie/data/api/tmdb_api.dart';
@@ -26,6 +27,7 @@ void main() {
       expect(loaded.bundle.cast, hasLength(1));
       expect(loaded.bundle.similarMovies, hasLength(1));
       expect(loaded.bundle.similarMovies.first.title, 'Dune');
+      expect(loaded.bundle.trailerVideo?.key, 'xyz');
     });
 
     test('emits Loading then Error when a request fails', () async {
@@ -41,6 +43,72 @@ void main() {
       await expectation;
     });
   });
+
+  group('MovieDetailBundle.trailerVideo', () {
+    MovieDetailBundle bundleWithVideos(List<TmdbVideo> videos) {
+      return MovieDetailBundle(
+        detail: TmdbMovieDetailResponse.fromJson({
+          'id': 1,
+          'title': 'Test',
+          'overview': '',
+          'poster_path': null,
+          'backdrop_path': null,
+          'vote_average': 0,
+          'runtime': null,
+          'genres': [],
+        }),
+        cast: const [],
+        videos: videos,
+        similarMovies: const [],
+      );
+    }
+
+    test('returns null when there are no videos', () {
+      expect(bundleWithVideos(const []).trailerVideo, isNull);
+    });
+
+    test('returns null when no video is a YouTube trailer', () {
+      final videos = [
+        TmdbVideo.fromJson({
+          'id': '1',
+          'key': 'abc',
+          'site': 'YouTube',
+          'type': 'Teaser',
+          'name': 'Teaser',
+        }),
+        TmdbVideo.fromJson({
+          'id': '2',
+          'key': 'def',
+          'site': 'Vimeo',
+          'type': 'Trailer',
+          'name': 'Vimeo Trailer',
+        }),
+      ];
+      expect(bundleWithVideos(videos).trailerVideo, isNull);
+    });
+
+    test('returns the first YouTube trailer when present', () {
+      final videos = [
+        TmdbVideo.fromJson({
+          'id': '1',
+          'key': 'abc',
+          'site': 'YouTube',
+          'type': 'Teaser',
+          'name': 'Teaser',
+        }),
+        TmdbVideo.fromJson({
+          'id': '2',
+          'key': 'def',
+          'site': 'YouTube',
+          'type': 'Trailer',
+          'name': 'Official Trailer',
+        }),
+      ];
+      final trailer = bundleWithVideos(videos).trailerVideo;
+      expect(trailer, isNotNull);
+      expect(trailer!.key, 'def');
+    });
+  });
 }
 
 class _FakeTmdbApi implements TmdbApi {
@@ -49,10 +117,7 @@ class _FakeTmdbApi implements TmdbApi {
   final bool shouldThrow;
 
   @override
-  Future<TmdbMovieDetailResponse> getMovieDetail(
-    int movieId,
-    String language,
-  ) async {
+  Future<TmdbMovieDetailResponse> getMovieDetail(int movieId) async {
     if (shouldThrow) throw Exception('network error');
     return TmdbMovieDetailResponse.fromJson({
       'id': movieId,
@@ -69,7 +134,7 @@ class _FakeTmdbApi implements TmdbApi {
   }
 
   @override
-  Future<TmdbCreditsResponse> getCredits(int movieId, String language) async {
+  Future<TmdbCreditsResponse> getCredits(int movieId) async {
     if (shouldThrow) throw Exception('network error');
     return TmdbCreditsResponse.fromJson({
       'cast': [
@@ -84,7 +149,7 @@ class _FakeTmdbApi implements TmdbApi {
   }
 
   @override
-  Future<TmdbVideosResponse> getVideos(int movieId, String language) async {
+  Future<TmdbVideosResponse> getVideos(int movieId) async {
     if (shouldThrow) throw Exception('network error');
     return TmdbVideosResponse.fromJson({
       'results': [
@@ -100,10 +165,7 @@ class _FakeTmdbApi implements TmdbApi {
   }
 
   @override
-  Future<TmdbMovieResponse> getSimilarMovies(
-    int movieId,
-    String language,
-  ) async {
+  Future<TmdbMovieResponse> getSimilarMovies(int movieId) async {
     if (shouldThrow) throw Exception('network error');
     return TmdbMovieResponse.fromJson({
       'results': [

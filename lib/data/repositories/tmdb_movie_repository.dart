@@ -36,7 +36,7 @@ class TmdbMovieRepository {
   Future<List<Movie>> fetchMoviesByGenre(int genreId, {int page = 1}) async {
     final uri = Uri.parse(
       '$_baseUrl/discover/movie'
-      '?api_key=$_apiKey&language=vi-VN&with_genres=$genreId'
+      '?api_key=$_apiKey&with_genres=$genreId'
       '&sort_by=popularity.desc&page=$page',
     );
     final response = await _client.get(
@@ -57,7 +57,7 @@ class TmdbMovieRepository {
   Future<List<Movie>> searchMovies(String query, {int page = 1}) async {
     final uri = Uri.parse(
       '$_baseUrl/search/movie'
-      '?api_key=$_apiKey&language=vi-VN&query=${Uri.encodeQueryComponent(query)}'
+      '?api_key=$_apiKey&query=${Uri.encodeQueryComponent(query)}'
       '&page=$page',
     );
     final response = await _client.get(

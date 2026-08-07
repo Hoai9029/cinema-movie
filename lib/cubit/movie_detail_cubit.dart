@@ -11,16 +11,15 @@ class MovieDetailCubit extends Cubit<MovieDetailState> {
   MovieDetailCubit(this._api) : super(const MovieDetailInitial());
 
   final TmdbApi _api;
-  static const String _language = 'vi-VN';
 
   Future<void> loadMovieDetail(int movieId) async {
     emit(const MovieDetailLoading());
     try {
       final (detail, credits, videos, similar) = await (
-        _api.getMovieDetail(movieId, _language),
-        _api.getCredits(movieId, _language),
-        _api.getVideos(movieId, _language),
-        _api.getSimilarMovies(movieId, _language),
+        _api.getMovieDetail(movieId),
+        _api.getCredits(movieId),
+        _api.getVideos(movieId),
+        _api.getSimilarMovies(movieId),
       ).wait;
 
       final similarMovies = similar.results

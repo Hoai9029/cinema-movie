@@ -11,26 +11,14 @@ abstract class TmdbApi {
   factory TmdbApi(Dio dio, {String baseUrl}) = _TmdbApi;
 
   @GET('/movie/{id}')
-  Future<TmdbMovieDetailResponse> getMovieDetail(
-    @Path('id') int movieId,
-    @Query('language') String language,
-  );
+  Future<TmdbMovieDetailResponse> getMovieDetail(@Path('id') int movieId);
 
   @GET('/movie/{id}/credits')
-  Future<TmdbCreditsResponse> getCredits(
-    @Path('id') int movieId,
-    @Query('language') String language,
-  );
+  Future<TmdbCreditsResponse> getCredits(@Path('id') int movieId);
 
   @GET('/movie/{id}/videos')
-  Future<TmdbVideosResponse> getVideos(
-    @Path('id') int movieId,
-    @Query('language') String language,
-  );
+  Future<TmdbVideosResponse> getVideos(@Path('id') int movieId);
 
   @GET('/movie/{id}/similar')
-  Future<TmdbMovieResponse> getSimilarMovies(
-    @Path('id') int movieId,
-    @Query('language') String language,
-  );
+  Future<TmdbMovieResponse> getSimilarMovies(@Path('id') int movieId);
 }
