@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/theme/app_colors.dart';
-import '../data/fake_movies.dart';
 import '../data/watchlist_state.dart';
 import '../widgets/responsive_container.dart';
-import 'movie_detail_page.dart';
 import '../routes/app_router.dart';
 
 // ============================================================
@@ -20,9 +18,7 @@ class FavoritesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final watchlist = context.watch<WatchlistState>();
-    final favoriteMovies = fakeMovies
-        .where((m) => watchlist.isFavorite(m.id))
-        .toList();
+    final favoriteMovies = watchlist.favoriteMovies;
 
     if (favoriteMovies.isEmpty) {
       // Trạng thái rỗng: Column căn giữa gồm icon + 2 dòng chữ.
@@ -84,22 +80,10 @@ class FavoritesPage extends StatelessWidget {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.asset(
-                        movie.poster,
+                      child: SizedBox(
                         width: 60,
                         height: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            width: 60,
-                            height: 80,
-                            color: AppColors.surfaceOf(context),
-                            child: Icon(
-                              Icons.movie,
-                              color: AppColors.textFadedOf(context),
-                            ),
-                          );
-                        },
+                        child: _buildPoster(context, movie.poster),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -132,7 +116,7 @@ class FavoritesPage extends StatelessWidget {
                         Icons.favorite,
                         color: AppColors.primary,
                       ),
-                      onPressed: () => watchlist.toggleFavorite(movie.id),
+                      onPressed: () => watchlist.toggleFavorite(movie),
                     ),
                   ],
                 ),
@@ -141,6 +125,29 @@ class FavoritesPage extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildPoster(BuildContext context, String posterPath) {
+    Widget fallback() => Container(
+      color: AppColors.surfaceOf(context),
+      child: Icon(Icons.movie, color: AppColors.textFadedOf(context)),
+    );
+
+    if (posterPath.isEmpty) return fallback();
+
+    if (posterPath.startsWith('http')) {
+      return Image.network(
+        posterPath,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => fallback(),
+      );
+    }
+
+    return Image.asset(
+      posterPath,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => fallback(),
     );
   }
 }

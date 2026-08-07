@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"https://api.themoviedb.org/3/movie/969681/videos?api_key=436423a1d9baff688132e236ad89020b\")",
+      "Bash(curl -s \"https://api.themoviedb.org/3/movie/1212763/videos?api_key=436423a1d9baff688132e236ad89020b\")"
+    ]
+  }
+}

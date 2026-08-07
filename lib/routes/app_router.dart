@@ -6,7 +6,6 @@ import '../pages/login_page.dart';
 import '../pages/home_page.dart';
 import '../pages/movie_detail_page.dart';
 import '../pages/watch_page.dart';
-import '../data/fake_movies.dart';
 import '../models/movie.dart';
 
 class AppRoutes {
@@ -40,44 +39,18 @@ class AppRouter {
     // Dynamic movie route: /movie/:id
     if (name.startsWith('${AppRoutes.movie}/')) {
       final id = name.split('/').last;
-      Movie? movie;
       if (args is Movie) {
-        movie = args;
-      } else {
-        try {
-          movie = fakeMovies.firstWhere((m) => m.id == id);
-        } catch (_) {
-          movie = null;
-        }
+        return MaterialPageRoute(builder: (_) => MovieDetailPage(movie: args));
       }
-
-      if (movie != null) {
-        final m = movie!;
-        return MaterialPageRoute(builder: (_) => MovieDetailPage(movie: m));
-      }
-
       return _unknownRoute('Movie not found: $id');
     }
 
     // Dynamic watch route: /watch/:id
     if (name.startsWith('${AppRoutes.watch}/')) {
       final id = name.split('/').last;
-      Movie? movie;
       if (args is Movie) {
-        movie = args;
-      } else {
-        try {
-          movie = fakeMovies.firstWhere((m) => m.id == id);
-        } catch (_) {
-          movie = null;
-        }
+        return MaterialPageRoute(builder: (_) => WatchPage(movie: args));
       }
-
-      if (movie != null) {
-        final m = movie!;
-        return MaterialPageRoute(builder: (_) => WatchPage(movie: m));
-      }
-
       return _unknownRoute('Movie not found: $id');
     }
 

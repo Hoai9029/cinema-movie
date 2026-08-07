@@ -22,12 +22,9 @@ class _TmdbApi implements TmdbApi {
   final ParseErrorLogger? errorLogger;
 
   @override
-  Future<TmdbMovieDetailResponse> getMovieDetail(
-    int movieId,
-    String language,
-  ) async {
+  Future<TmdbMovieDetailResponse> getMovieDetail(int movieId) async {
     final _extra = <String, dynamic>{};
-    final queryParameters = <String, dynamic>{r'language': language};
+    final queryParameters = <String, dynamic>{};
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;
     final _options = _setStreamType<TmdbMovieDetailResponse>(
@@ -52,9 +49,9 @@ class _TmdbApi implements TmdbApi {
   }
 
   @override
-  Future<TmdbCreditsResponse> getCredits(int movieId, String language) async {
+  Future<TmdbCreditsResponse> getCredits(int movieId) async {
     final _extra = <String, dynamic>{};
-    final queryParameters = <String, dynamic>{r'language': language};
+    final queryParameters = <String, dynamic>{};
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;
     final _options = _setStreamType<TmdbCreditsResponse>(
@@ -79,9 +76,9 @@ class _TmdbApi implements TmdbApi {
   }
 
   @override
-  Future<TmdbVideosResponse> getVideos(int movieId, String language) async {
+  Future<TmdbVideosResponse> getVideos(int movieId) async {
     final _extra = <String, dynamic>{};
-    final queryParameters = <String, dynamic>{r'language': language};
+    final queryParameters = <String, dynamic>{};
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;
     final _options = _setStreamType<TmdbVideosResponse>(
@@ -106,12 +103,9 @@ class _TmdbApi implements TmdbApi {
   }
 
   @override
-  Future<TmdbMovieResponse> getSimilarMovies(
-    int movieId,
-    String language,
-  ) async {
+  Future<TmdbMovieResponse> getSimilarMovies(int movieId) async {
     final _extra = <String, dynamic>{};
-    final queryParameters = <String, dynamic>{r'language': language};
+    final queryParameters = <String, dynamic>{};
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;
     final _options = _setStreamType<TmdbMovieResponse>(

@@ -176,9 +176,21 @@ class _HomeTabContentState extends State<_HomeTabContent> {
             return const Center(child: CircularProgressIndicator());
           }
 
+          if (snapshot.hasError) {
+            debugPrint('TMDB fetchTrendingMovies error: ${snapshot.error}');
+          }
+
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(
-              child: Text('Không thể tải phim từ TMDB lúc này.'),
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  snapshot.hasError
+                      ? 'Không thể tải phim từ TMDB lúc này.\n${snapshot.error}'
+                      : 'Không thể tải phim từ TMDB lúc này.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
             );
           }
 

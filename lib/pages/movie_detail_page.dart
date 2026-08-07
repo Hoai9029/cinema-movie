@@ -10,6 +10,7 @@ import '../data/api/tmdb_dio_client.dart';
 import '../data/watchlist_state.dart';
 import '../models/movie.dart';
 import '../routes/app_router.dart';
+import 'trailer_player_page.dart';
 
 class MovieDetailPage extends StatelessWidget {
   final Movie movie;
@@ -127,23 +128,29 @@ class _MovieDetailView extends StatelessWidget {
             child: _CircleIconButton(
               icon: isFavorite ? Icons.favorite : Icons.favorite_border,
               iconColor: isFavorite ? AppColors.primary : Colors.white,
-              onTap: () => watchlist.toggleFavorite(movie.id),
+              onTap: () => watchlist.toggleFavorite(movie),
             ),
           ),
-          Center(
-            child: _CircleIconButton(
-              icon: Icons.play_arrow,
-              size: 64,
-              iconSize: 32,
-              onTap: () {
-                Navigator.pushNamed(
-                  context,
-                  '${AppRoutes.watch}/${movie.id}',
-                  arguments: movie,
-                );
-              },
+          if (state is MovieDetailLoaded && state.bundle.trailerVideo != null)
+            Center(
+              child: _CircleIconButton(
+                icon: Icons.play_arrow,
+                size: 64,
+                iconSize: 32,
+                onTap: () {
+                  final trailer = state.bundle.trailerVideo!;
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TrailerPlayerPage(
+                        videoId: trailer.key,
+                        title: trailer.name,
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
     );

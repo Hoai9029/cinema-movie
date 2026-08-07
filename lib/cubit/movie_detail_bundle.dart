@@ -23,4 +23,11 @@ class MovieDetailBundle {
   }
 
   List<String> get genreNames => detail.genres.map((g) => g.name).toList();
+
+  TmdbVideo? get trailerVideo {
+    for (final video in videos) {
+      if (video.isYoutubeTrailer) return video;
+    }
+    return null;
+  }
 }
