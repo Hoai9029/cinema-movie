@@ -6,6 +6,10 @@ class MovieCard extends StatelessWidget {
   final String rating;
   final String? imagePath;
   final double width;
+  // Tag Hero dùng để "bay" ảnh poster này sang MovieDetailPage khi
+  // bấm vào. Phải khớp với heroTag mà MovieDetailPage nhận được khi
+  // điều hướng tới, nếu không animation sẽ không xảy ra.
+  final String? heroTag;
 
   const MovieCard({
     super.key,
@@ -13,12 +17,31 @@ class MovieCard extends StatelessWidget {
     required this.rating,
     this.imagePath,
     this.width = 140,
+    this.heroTag,
   });
 
   @override
   Widget build(BuildContext context) {
     final hasImage = imagePath != null && imagePath!.isNotEmpty;
     final isNetworkImage = hasImage && imagePath!.startsWith('http');
+
+    final poster = hasImage
+        ? (isNetworkImage
+              ? Image.network(
+                  imagePath!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return _posterFallback(context);
+                  },
+                )
+              : Image.asset(
+                  imagePath!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return _posterFallback(context);
+                  },
+                ))
+        : _posterFallback(context);
 
     return Container(
       width: width,
@@ -32,23 +55,9 @@ class MovieCard extends StatelessWidget {
               height: 190,
               width: width,
               color: AppColors.cardOf(context),
-              child: hasImage
-                  ? (isNetworkImage
-                        ? Image.network(
-                            imagePath!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return _posterFallback(context);
-                            },
-                          )
-                        : Image.asset(
-                            imagePath!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return _posterFallback(context);
-                            },
-                          ))
-                  : _posterFallback(context),
+              child: heroTag != null
+                  ? Hero(tag: heroTag!, child: poster)
+                  : poster,
             ),
           ),
           const SizedBox(height: 8),

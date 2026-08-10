@@ -14,8 +14,13 @@ import 'trailer_player_page.dart';
 
 class MovieDetailPage extends StatelessWidget {
   final Movie movie;
+  // Tag Hero cho poster ở đầu trang. Phải khớp với heroTag của
+  // MovieCard đã điều hướng tới đây; nếu không truyền, dùng tag mặc
+  // định theo id phim (đủ dùng cho các màn chỉ có 1 danh sách phim,
+  // ví dụ Yêu thích, Danh mục).
+  final String? heroTag;
 
-  const MovieDetailPage({super.key, required this.movie});
+  const MovieDetailPage({super.key, required this.movie, this.heroTag});
 
   @override
   Widget build(BuildContext context) {
@@ -28,15 +33,19 @@ class MovieDetailPage extends StatelessWidget {
         }
         return cubit;
       },
-      child: _MovieDetailView(movie: movie),
+      child: _MovieDetailView(
+        movie: movie,
+        heroTag: heroTag ?? 'poster-${movie.id}',
+      ),
     );
   }
 }
 
 class _MovieDetailView extends StatelessWidget {
-  const _MovieDetailView({required this.movie});
+  const _MovieDetailView({required this.movie, required this.heroTag});
 
   final Movie movie;
+  final String heroTag;
 
   @override
   Widget build(BuildContext context) {
@@ -100,9 +109,12 @@ class _MovieDetailView extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Container(
-            color: AppColors.card,
-            child: _buildPoster(backdropUrl, context),
+          Hero(
+            tag: heroTag,
+            child: Container(
+              color: AppColors.card,
+              child: _buildPoster(backdropUrl, context),
+            ),
           ),
           Container(
             decoration: const BoxDecoration(
