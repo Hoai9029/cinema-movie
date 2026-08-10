@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../core/theme/app_colors.dart';
-import '../data/repositories/tmdb_movie_repository.dart';
+import '../cubit/home_cubit.dart';
+import '../cubit/home_state.dart';
+import '../data/api/tmdb_api.dart';
+import '../data/api/tmdb_dio_client.dart';
 import '../models/movie.dart';
 import '../widgets/movie_card.dart';
 import '../widgets/section_title.dart';
@@ -108,167 +112,145 @@ class _HomeTabContent extends StatefulWidget {
 }
 
 class _HomeTabContentState extends State<_HomeTabContent> {
-  final TmdbMovieRepository _repository = TmdbMovieRepository();
-  late Future<List<Movie>> _futureMovies;
-
-  // ---- MỚI: dữ liệu "phim tương tự theo thể loại" ----
-  // Map<tên thể loại, danh sách phim thuộc thể loại đó>.
-  late Future<Map<String, List<Movie>>> _futureGenreMovies;
+  late final HomeCubit _cubit;
 
   // Chỉ số banner đang hiển thị, dùng để tô đậm dot indicator.
   int _currentBannerIndex = 0;
   late final PageController _bannerController;
 
-  // Danh sách thể loại muốn hiển thị (id thể loại chuẩn của TMDB).
-  // Có thể thay đổi/mở rộng tuỳ nhu cầu app.
-  static const Map<int, String> _genresToShow = {
-    28: 'Hành động', // Action
-    35: 'Hài', // Comedy
-    18: 'Chính kịch', // Drama
-    10749: 'Lãng mạn', // Romance
-    14: 'Viễn tưởng', // Fantasy
-  };
-
   @override
   void initState() {
     super.initState();
     _bannerController = PageController(viewportFraction: 0.9);
-    _futureMovies = _repository.fetchTrendingMovies();
-    // MỚI: gọi song song, không phụ thuộc / không đổi _futureMovies.
-    _futureGenreMovies = _fetchMoviesGroupedByGenre();
+    // API data không còn được gọi trực tiếp trong widget: HomeCubit
+    // chịu trách nhiệm gọi TmdbApi (Dio/Retrofit) và phát ra state.
+    _cubit = HomeCubit(TmdbApi(buildTmdbDio()))..loadHome();
   }
 
   @override
   void dispose() {
     _bannerController.dispose();
+    _cubit.close();
     super.dispose();
-  }
-
-  // MỚI: gọi TMDB để lấy phim tương tự, nhóm theo từng thể loại.
-  // Dùng repository.fetchMoviesByGenre(genreId) - xem ghi chú cuối
-  // file để thêm hàm này vào TmdbMovieRepository nếu chưa có.
-  Future<Map<String, List<Movie>>> _fetchMoviesGroupedByGenre() async {
-    final result = <String, List<Movie>>{};
-
-    for (final entry in _genresToShow.entries) {
-      try {
-        final movies = await _repository.fetchMoviesByGenre(entry.key);
-        if (movies.isNotEmpty) {
-          result[entry.value] = movies;
-        }
-      } catch (_) {
-        // Bỏ qua thể loại lỗi, không làm sập cả trang.
-        continue;
-      }
-    }
-
-    return result;
   }
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveContainer(
-      maxWidth: 1000,
-      child: FutureBuilder<List<Movie>>(
-        future: _futureMovies,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            debugPrint('TMDB fetchTrendingMovies error: ${snapshot.error}');
-          }
-
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  snapshot.hasError
-                      ? 'Không thể tải phim từ TMDB lúc này.\n${snapshot.error}'
-                      : 'Không thể tải phim từ TMDB lúc này.',
-                  textAlign: TextAlign.center,
+    return BlocProvider.value(
+      value: _cubit,
+      child: ResponsiveContainer(
+        maxWidth: 1000,
+        child: BlocBuilder<HomeCubit, HomeState>(
+          builder: (context, state) {
+            return switch (state) {
+              HomeInitial() || HomeLoading() => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              HomeError(:final message) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(message, textAlign: TextAlign.center),
                 ),
+              ),
+              HomeLoaded(:final movies, :final genreMovies) => _buildLoaded(
+                context,
+                movies,
+                genreMovies,
+              ),
+            };
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoaded(
+    BuildContext context,
+    List<Movie> movies,
+    Map<String, List<Movie>> genreMovies,
+  ) {
+    if (movies.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
+            'Không thể tải phim từ TMDB lúc này.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    // MỚI: lấy vài phim đầu để làm các banner trượt qua lại
+    // (thay vì chỉ 1 banner tĩnh như trước). Vẫn lấy từ cùng
+    // danh sách movies cũ, không gọi thêm API.
+    final banners = movies.take(5).toList();
+
+    // Chia danh sách gốc thành 2 phần để khớp với ảnh mẫu:
+    // "Trending" và "Recommended For You". Không gọi thêm
+    // API, không đổi logic fetch ban đầu.
+    final trending = movies.take(6).toList();
+    final recommended = movies.length > 6
+        ? movies.skip(6).take(6).toList()
+        : movies;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        SizedBox(
+          height: 220,
+          child: PageView.builder(
+            controller: _bannerController,
+            itemCount: banners.length,
+            onPageChanged: (index) {
+              setState(() => _currentBannerIndex = index);
+            },
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: _buildBannerCard(context, banners[index]),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        // ---- MỚI: dot indicator cho banner ----
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(banners.length, (index) {
+            final isActive = index == _currentBannerIndex;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: isActive ? 18 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: isActive
+                    ? AppColors.primary
+                    : AppColors.textFadedOf(context),
+                borderRadius: BorderRadius.circular(4),
               ),
             );
-          }
+          }),
+        ),
+        const SizedBox(height: 24),
 
-          final movies = snapshot.data!;
+        // ---- "Trending" (thay cho "Phim mới nhất" cũ, theo ảnh mẫu) ----
+        SectionTitle(title: 'Trending'),
+        const SizedBox(height: 12),
+        _buildMovieRow(context, trending, sectionKey: 'trending'),
+        const SizedBox(height: 24),
 
-          // MỚI: lấy vài phim đầu để làm các banner trượt qua lại
-          // (thay vì chỉ 1 banner tĩnh như trước). Vẫn lấy từ cùng
-          // danh sách movies cũ, không gọi thêm API.
-          final banners = movies.take(5).toList();
+        // ---- "Recommended For You" (hàng thứ 2 trong ảnh mẫu) ----
+        SectionTitle(title: 'Recommended For You'),
+        const SizedBox(height: 12),
+        _buildMovieRow(context, recommended, sectionKey: 'recommended'),
+        const SizedBox(height: 24),
 
-          // Chia danh sách gốc thành 2 phần để khớp với ảnh mẫu:
-          // "Trending" và "Recommended For You". Không gọi thêm
-          // API, không đổi logic fetch ban đầu.
-          final trending = movies.take(6).toList();
-          final recommended = movies.length > 6
-              ? movies.skip(6).take(6).toList()
-              : movies;
-
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              SizedBox(
-                height: 220,
-                child: PageView.builder(
-                  controller: _bannerController,
-                  itemCount: banners.length,
-                  onPageChanged: (index) {
-                    setState(() => _currentBannerIndex = index);
-                  },
-                  itemBuilder: (context, index) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: _buildBannerCard(context, banners[index]),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 12),
-              // ---- MỚI: dot indicator cho banner ----
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(banners.length, (index) {
-                  final isActive = index == _currentBannerIndex;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: isActive ? 18 : 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? AppColors.primary
-                          : AppColors.textFadedOf(context),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  );
-                }),
-              ),
-              const SizedBox(height: 24),
-
-              // ---- "Trending" (thay cho "Phim mới nhất" cũ, theo ảnh mẫu) ----
-              SectionTitle(title: 'Trending'),
-              const SizedBox(height: 12),
-              _buildMovieRow(context, trending, sectionKey: 'trending'),
-              const SizedBox(height: 24),
-
-              // ---- "Recommended For You" (hàng thứ 2 trong ảnh mẫu) ----
-              SectionTitle(title: 'Recommended For You'),
-              const SizedBox(height: 12),
-              _buildMovieRow(context, recommended, sectionKey: 'recommended'),
-              const SizedBox(height: 24),
-
-              // ---- MỚI: danh sách phim tương tự, nhóm theo thể loại ----
-              // Đặt ngay dưới "Recommended For You" như yêu cầu.
-              _buildGenreSections(context),
-            ],
-          );
-        },
-      ),
+        // ---- MỚI: danh sách phim tương tự, nhóm theo thể loại ----
+        // Đặt ngay dưới "Recommended For You" như yêu cầu.
+        _buildGenreSections(context, genreMovies),
+      ],
     );
   }
 
@@ -319,39 +301,29 @@ class _HomeTabContentState extends State<_HomeTabContent> {
   // MỚI: khối "phim tương tự theo thể loại", lấy dữ liệu thật từ
   // TMDB (fetchMoviesByGenre). Mỗi thể loại là một SectionTitle +
   // một hàng ngang riêng, y hệt kiểu Trending/Recommended.
-  Widget _buildGenreSections(BuildContext context) {
-    return FutureBuilder<Map<String, List<Movie>>>(
-      future: _futureGenreMovies,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
+  Widget _buildGenreSections(
+    BuildContext context,
+    Map<String, List<Movie>> genreMovies,
+  ) {
+    if (genreMovies.isEmpty) {
+      // Không chặn phần còn lại của trang nếu TMDB lỗi/rỗng.
+      return const SizedBox.shrink();
+    }
 
-        final genreMovies = snapshot.data;
-        if (genreMovies == null || genreMovies.isEmpty) {
-          // Không chặn phần còn lại của trang nếu TMDB lỗi/rỗng.
-          return const SizedBox.shrink();
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (final genreEntry in genreMovies.entries) ...[
-              SectionTitle(title: 'Tương tự - ${genreEntry.key}'),
-              const SizedBox(height: 12),
-              _buildMovieRow(
-                context,
-                genreEntry.value,
-                sectionKey: 'genre-${genreEntry.key}',
-              ),
-              const SizedBox(height: 24),
-            ],
-          ],
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final genreEntry in genreMovies.entries) ...[
+          SectionTitle(title: 'Tương tự - ${genreEntry.key}'),
+          const SizedBox(height: 12),
+          _buildMovieRow(
+            context,
+            genreEntry.value,
+            sectionKey: 'genre-${genreEntry.key}',
+          ),
+          const SizedBox(height: 24),
+        ],
+      ],
     );
   }
 
@@ -467,27 +439,4 @@ class _HomeTabContentState extends State<_HomeTabContent> {
 //
 //   dependencies:
 //     carousel_slider: ^4.2.1
-// ============================================================
-
-// ============================================================
-// GHI CHÚ: cần thêm vào TmdbMovieRepository (file
-// data/repositories/tmdb_movie_repository.dart) nếu repository
-// của bạn CHƯA có hàm lấy phim theo thể loại. Hàm này gọi endpoint
-// TMDB Discover, tương tự cách fetchTrendingMovies() hiện có của
-// bạn đang gọi TMDB - chỉ đổi endpoint và tham số with_genres.
-//
-// Future<List<Movie>> fetchMoviesByGenre(int genreId, {int page = 1}) async {
-//   final uri = Uri.parse(
-//     'https://api.themoviedb.org/3/discover/movie'
-//     '?api_key=$apiKey&language=vi-VN&with_genres=$genreId'
-//     '&sort_by=popularity.desc&page=$page',
-//   );
-//   final response = await http.get(uri);
-//   if (response.statusCode != 200) {
-//     throw Exception('Không thể tải phim theo thể loại $genreId');
-//   }
-//   final data = jsonDecode(response.body) as Map<String, dynamic>;
-//   final results = data['results'] as List<dynamic>;
-//   return results.map((json) => Movie.fromJson(json)).toList();
-// }
 // ============================================================

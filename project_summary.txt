@@ -1,0 +1,181 @@
+CINEMA_MOVIE — PROJECT SUMMARY
+================================
+Last updated: 2026-08-10
+
+TASK
+----
+Mentor instruction: "Change FutureBuilder (used for fetching API data) to
+BlocBuilder", using home_part.dart as the guiding example.
+
+Note: no file named home_part.dart exists in the project. The home-tab
+logic actually lives in lib/pages/home_page.dart, so that file was treated
+as the intended target.
+
+SCOPE DECIDED WITH USER
+------------------------
+1. Data source: migrate Home/Categories onto the same Dio + Retrofit
+   (TmdbApi) client already used by the Movie Detail screen, instead of
+   keeping the legacy http-based TmdbMovieRepository.
+2. Also refactor lib/pages/categories_page.dart (same FutureBuilder
+   pattern), not just home_page.dart.
+
+
+BEFORE — ARCHITECTURE
+----------------------
+Two parallel data-fetching stacks coexisted:
+
+  Legacy stack (Home, Categories):
+    Widget (StatefulWidget)
+      -> TmdbMovieRepository (http package, manual JSON parsing)
+      -> FutureBuilder<...> in build()
+      -> UI driven by AsyncSnapshot (waiting / error / data)
+
+  New stack (Movie Detail only):
+    Widget
+      -> BlocProvider creates MovieDetailCubit(TmdbApi(buildTmdbDio()))
+      -> Cubit awaits Dio/Retrofit calls, emits sealed states
+      -> BlocBuilder<MovieDetailCubit, MovieDetailState>
+      -> UI driven by state switch (Initial/Loading/Loaded/Error)
+
+Problems with the legacy stack relative to the mentor's ask:
+  - Widgets called the repository directly (API concerns leaking into UI).
+  - No shared state class; each page reimplemented waiting/error/empty
+    handling inline inside FutureBuilder.builder().
+  - home_page.dart had TWO independent FutureBuilders (one nested inside
+    the other's build output) for trending/recommended vs. genre-grouped
+    "similar" sections.
+
+
+AFTER — ARCHITECTURE (applied consistently to Home, Categories, and
+Movie Detail)
+----------------------------------------------------------------------
+  UI (StatefulWidget page)
+    -> creates Cubit once in initState(), injected with TmdbApi(buildTmdbDio())
+    -> BlocProvider.value(value: cubit) wraps the subtree
+    -> Cubit method (e.g. loadHome(), loadByGenre(), search()) is called
+    -> Cubit emits: Initial -> Loading -> Loaded(data) | Error(message)
+    -> BlocBuilder<Cubit, State> switches on the sealed state
+    -> UI renders spinner / error text / actual content per state
+
+  Data path:
+    Widget -> Cubit -> TmdbApi (Dio/Retrofit) -> TMDB REST API
+           <- TmdbMovieResponse / TmdbMovieDetailResponse (DTOs)
+    Cubit maps DTOs -> app Movie model via TmdbMovieMapper.toMovie()
+    Cubit emits final state -> BlocBuilder rebuilds UI
+
+
+FILES CHANGED
+-------------
+lib/data/api/tmdb_api.dart
+  Added 3 new Retrofit endpoints so Home/Categories no longer need the
+  legacy repository:
+    GET /trending/movie/day        -> getTrendingMovies()
+    GET /discover/movie            -> getMoviesByGenre(genreId, sortBy, page)
+    GET /search/movie              -> searchMovies(query, page)
+
+lib/data/api/tmdb_api.g.dart
+  Regenerated via `dart run build_runner build` to implement the 3 new
+  endpoints (generated code, not hand-edited).
+
+lib/data/models/tmdb_movie_response.dart
+  Added extension TmdbMovieMapper on TmdbMovie with toMovie(), the single
+  place that converts a TMDB DTO into the app's Movie entity. Reused by
+  HomeCubit, CategoriesCubit, and MovieDetailCubit (previously each cubit
+  duplicated this mapping inline).
+
+lib/cubit/movie_detail_cubit.dart
+  Switched similar-movies mapping to use TmdbMovieMapper.toMovie() instead
+  of an inline map() literal. No behavior change.
+
+lib/pages/home_page.dart
+  _HomeTabContentState:
+    - Removed TmdbMovieRepository field and both `Future<...>` fields.
+    - HomeCubit created once in initState(), closed in dispose().
+    - build() wraps content in BlocProvider.value + BlocBuilder<HomeCubit,
+      HomeState>, switching on Initial/Loading/Error/Loaded.
+    - _buildGenreSections() no longer owns its own FutureBuilder; it now
+      takes the already-loaded genreMovies map as a parameter.
+    - Layout, banners, section titles, MovieCard rows, Hero tags: all
+      unchanged.
+
+lib/pages/categories_page.dart
+  _CategoriesPageState:
+    - Removed TmdbMovieRepository field and the `Future<List<Movie>>`
+      field.
+    - CategoriesCubit created once in initState() (initial genre load),
+      closed in dispose().
+    - _onSearchChanged / _onGenreSelected now call cubit.search(...) /
+      cubit.loadByGenre(...) instead of reassigning a Future inside
+      setState().
+    - _buildMovieGrid() replaced its FutureBuilder with
+      BlocBuilder<CategoriesCubit, CategoriesState>.
+    - Grid layout, chips, search bar, empty-state copy: all unchanged.
+
+test/movie_detail_cubit_test.dart
+  The fake _FakeTmdbApi test double implements TmdbApi and had to add the
+  3 new interface methods (getTrendingMovies/getMoviesByGenre/
+  searchMovies) to keep compiling as a concrete class.
+
+
+NEW FILES
+---------
+lib/cubit/home_state.dart
+  Sealed HomeState (Equatable): HomeInitial, HomeLoading,
+  HomeLoaded(movies, genreMovies), HomeError(message).
+
+lib/cubit/home_cubit.dart
+  HomeCubit(TmdbApi): loadHome() awaits getTrendingMovies() and a
+  per-genre discover loop concurrently (Dart record `.wait`), maps
+  results via toMovie(), emits HomeLoaded or HomeError. Genre list
+  (Action/Comedy/Drama/Romance/Fantasy with TMDB ids) preserved from the
+  original home_page.dart implementation.
+
+lib/cubit/categories_state.dart
+  Sealed CategoriesState (Equatable): CategoriesInitial,
+  CategoriesLoading, CategoriesLoaded(movies), CategoriesError(message).
+
+lib/cubit/categories_cubit.dart
+  CategoriesCubit(TmdbApi): loadByGenre(genreId) and search(query), each
+  emits Loading then Loaded/Error.
+
+
+WHAT WAS DELIBERATELY LEFT UNCHANGED
+-------------------------------------
+- lib/data/repositories/tmdb_movie_repository.dart (legacy http client) —
+  left in place, no longer used by any page, but still covered by
+  test/tmdb_movie_repository_test.dart. Not deleted since removal wasn't
+  requested.
+- UI layout, colors, spacing, navigation, MovieCard/Hero animations —
+  untouched; only the data-loading mechanism changed.
+- TMDB API endpoints, JSON field names, and the Movie model — unchanged.
+- No global BlocProvider was introduced; each page still creates and
+  owns its Cubit locally (same pattern as the existing MovieDetailPage),
+  avoiding accidental app-wide state or duplicate BLoCs.
+
+
+VERIFICATION
+------------
+- `flutter analyze`: 0 errors. 3 pre-existing warnings remain (unused
+  imports in main.dart / login_page.dart / splash_page.dart), unrelated
+  to this change.
+- `flutter test`: all tests pass except one pre-existing failure in
+  test/widget_test.dart ("app shows the splash screen title"), caused by
+  Firebase not being initialized in the test harness. Confirmed via
+  `git stash` that this failure exists on the base branch too, i.e. it
+  predates this refactor.
+- No FutureBuilder remains anywhere in the API data-fetching path.
+- No duplicate Cubits, API clients, or repositories were introduced.
+
+
+DATA FLOW (FINAL, for all three screens: Home, Categories, Movie Detail)
+--------------------------------------------------------------------------
+  User opens screen
+    -> initState() creates Cubit(TmdbApi(buildTmdbDio())) and calls its
+       load/search method
+    -> Cubit emits Loading
+    -> Cubit awaits TmdbApi (Dio/Retrofit) call(s) against the TMDB REST API
+    -> On success: Cubit maps DTOs to Movie via TmdbMovieMapper, emits
+       Loaded(data)
+    -> On failure: Cubit emits Error(message)
+    -> BlocBuilder<Cubit, State> rebuilds the widget tree for the current
+       state (spinner / error text with retry / real content)

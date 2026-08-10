@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../data/api/tmdb_api.dart';
-import '../models/movie.dart';
+import '../data/models/tmdb_movie_response.dart';
 import 'movie_detail_bundle.dart';
 import 'movie_detail_state.dart';
 
@@ -22,19 +22,7 @@ class MovieDetailCubit extends Cubit<MovieDetailState> {
         _api.getSimilarMovies(movieId),
       ).wait;
 
-      final similarMovies = similar.results
-          .map<Movie>(
-            (m) => Movie(
-              id: m.id.toString(),
-              title: m.title,
-              poster: m.posterUrl,
-              duration: m.releaseDate.isEmpty ? 'Coming soon' : m.releaseDate,
-              rating: m.voteAverage,
-              overview: m.overview.isEmpty ? 'No overview available.' : m.overview,
-              genre: 'TMDB',
-            ),
-          )
-          .toList();
+      final similarMovies = similar.results.map((m) => m.toMovie()).toList();
 
       emit(
         MovieDetailLoaded(

@@ -21,4 +21,20 @@ abstract class TmdbApi {
 
   @GET('/movie/{id}/similar')
   Future<TmdbMovieResponse> getSimilarMovies(@Path('id') int movieId);
+
+  @GET('/trending/movie/day')
+  Future<TmdbMovieResponse> getTrendingMovies();
+
+  @GET('/discover/movie')
+  Future<TmdbMovieResponse> getMoviesByGenre(
+    @Query('with_genres') int genreId, {
+    @Query('sort_by') String sortBy = 'popularity.desc',
+    @Query('page') int page = 1,
+  });
+
+  @GET('/search/movie')
+  Future<TmdbMovieResponse> searchMovies(
+    @Query('query') String query, {
+    @Query('page') int page = 1,
+  });
 }
