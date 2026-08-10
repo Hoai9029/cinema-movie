@@ -47,6 +47,13 @@ Movie Details and Playback:
     MovieDetailBundle.trailerVideo (first video with type == "Trailer" and
     site == "YouTube") is non-null; tapping it pushes TrailerPlayerPage. No trailer
     means the button is simply hidden (no crash, no dead control).
+  - Hero animation: accepts an optional `heroTag` constructor param (defaults to
+    'poster-${movie.id}') and wraps the header poster/backdrop in a matching Hero.
+    Because the header shows movie.poster as a fallback until the TMDB detail call
+    resolves, and the destination route builds synchronously on push (before that
+    async fetch completes), the Hero flight always animates poster -> poster; the
+    later swap to the real backdrop is a plain post-flight content update, not part
+    of the animation.
 - TrailerPlayerPage (lib/pages/trailer_player_page.dart)
   - Plays the YouTube trailer in-app via youtube_player_flutter's YoutubePlayer widget.
 - WatchPage (lib/pages/watch_page.dart)
@@ -79,7 +86,8 @@ Theme and UI:
   - Defines dark and light ThemeData.
 - Colors and shared styling are centralized in lib/core/theme/app_colors.dart.
 - Reusable widgets:
-  - MovieCard (lib/widgets/movie_card.dart)
+  - MovieCard (lib/widgets/movie_card.dart): takes an optional `heroTag`; when set,
+    wraps the poster image in a Hero so it can fly into MovieDetailPage's header.
   - ResponsiveContainer (lib/widgets/responsive_container.dart)
   - SectionTitle (lib/widgets/section_title.dart)
 
@@ -119,3 +127,14 @@ Notes:
   was empty for nearly everything except titles with official VN marketing (e.g.
   "The Odyssey"). Removed everywhere, not just videos, to keep API behavior
   consistent across detail/credits/videos/similar/discover/search.
+- Hero poster tags on the Home tab are namespaced per row, not just per movie id
+  (see HomePage._buildMovieRow's `sectionKey` param, e.g.
+  'poster-trending-${movie.id}' vs 'poster-genre-Action-${movie.id}'). TMDB's
+  "popular" and per-genre discover results frequently overlap (the same blockbuster
+  shows up in Trending AND a genre row), and Flutter hard-crashes if two Hero
+  widgets share a tag while mounted on the same route simultaneously. The tag is
+  generated at the tap site and passed straight through to the pushed
+  MovieDetailPage's `heroTag`, so source/destination always match per-tap while
+  staying unique across rows. FavoritesPage/CategoriesPage don't use MovieCard, so
+  they get MovieDetailPage's default 'poster-${movie.id}' tag with no Hero
+  animation (harmless, just no flight).

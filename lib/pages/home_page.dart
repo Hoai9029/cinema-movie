@@ -253,13 +253,13 @@ class _HomeTabContentState extends State<_HomeTabContent> {
               // ---- "Trending" (thay cho "Phim mới nhất" cũ, theo ảnh mẫu) ----
               SectionTitle(title: 'Trending'),
               const SizedBox(height: 12),
-              _buildMovieRow(context, trending),
+              _buildMovieRow(context, trending, sectionKey: 'trending'),
               const SizedBox(height: 24),
 
               // ---- "Recommended For You" (hàng thứ 2 trong ảnh mẫu) ----
               SectionTitle(title: 'Recommended For You'),
               const SizedBox(height: 12),
-              _buildMovieRow(context, recommended),
+              _buildMovieRow(context, recommended, sectionKey: 'recommended'),
               const SizedBox(height: 24),
 
               // ---- MỚI: danh sách phim tương tự, nhóm theo thể loại ----
@@ -274,7 +274,18 @@ class _HomeTabContentState extends State<_HomeTabContent> {
 
   // Hàng ngang chứa các MovieCard - dùng chung cho Trending /
   // Recommended / các nhóm thể loại để không lặp code.
-  Widget _buildMovieRow(BuildContext context, List<Movie> movies) {
+  //
+  // sectionKey: cùng một phim có thể xuất hiện ở nhiều hàng khác nhau
+  // trên trang (vd Trending và một thể loại nào đó đều có chung một
+  // phim hot). Hero yêu cầu tag là DUY NHẤT trong toàn bộ trang tại
+  // một thời điểm, nên mỗi hàng cần một tiền tố riêng để tránh crash
+  // "multiple heroes share the same tag". Tag này được truyền thẳng
+  // sang MovieDetailPage để Hero khớp đúng cặp nguồn - đích.
+  Widget _buildMovieRow(
+    BuildContext context,
+    List<Movie> movies, {
+    required String sectionKey,
+  }) {
     return SizedBox(
       height: 260,
       child: ListView.builder(
@@ -282,18 +293,22 @@ class _HomeTabContentState extends State<_HomeTabContent> {
         itemCount: movies.length,
         itemBuilder: (context, index) {
           final movie = movies[index];
+          final heroTag = 'poster-$sectionKey-${movie.id}';
           return GestureDetector(
             onTap: () {
-              Navigator.pushNamed(
+              Navigator.push(
                 context,
-                '${AppRoutes.movie}/${movie.id}',
-                arguments: movie,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      MovieDetailPage(movie: movie, heroTag: heroTag),
+                ),
               );
             },
             child: MovieCard(
               title: movie.title,
               rating: movie.rating.toStringAsFixed(1),
               imagePath: movie.poster,
+              heroTag: heroTag,
             ),
           );
         },
@@ -327,7 +342,11 @@ class _HomeTabContentState extends State<_HomeTabContent> {
             for (final genreEntry in genreMovies.entries) ...[
               SectionTitle(title: 'Tương tự - ${genreEntry.key}'),
               const SizedBox(height: 12),
-              _buildMovieRow(context, genreEntry.value),
+              _buildMovieRow(
+                context,
+                genreEntry.value,
+                sectionKey: 'genre-${genreEntry.key}',
+              ),
               const SizedBox(height: 24),
             ],
           ],
