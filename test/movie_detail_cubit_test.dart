@@ -180,4 +180,26 @@ class _FakeTmdbApi implements TmdbApi {
       ],
     });
   }
+
+  @override
+  Future<TmdbMovieResponse> getTrendingMovies() async {
+    if (shouldThrow) throw Exception('network error');
+    return const TmdbMovieResponse(results: []);
+  }
+
+  @override
+  Future<TmdbMovieResponse> getMoviesByGenre(
+    int genreId, {
+    String sortBy = 'popularity.desc',
+    int page = 1,
+  }) async {
+    if (shouldThrow) throw Exception('network error');
+    return const TmdbMovieResponse(results: []);
+  }
+
+  @override
+  Future<TmdbMovieResponse> searchMovies(String query, {int page = 1}) async {
+    if (shouldThrow) throw Exception('network error');
+    return const TmdbMovieResponse(results: []);
+  }
 }

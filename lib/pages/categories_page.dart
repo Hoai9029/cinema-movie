@@ -1,8 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../core/theme/app_colors.dart';
-import '../data/repositories/tmdb_movie_repository.dart';
+import '../cubit/categories_cubit.dart';
+import '../cubit/categories_state.dart';
+import '../data/api/tmdb_api.dart';
+import '../data/api/tmdb_dio_client.dart';
 import '../models/movie.dart';
 import '../widgets/responsive_container.dart';
 import '../routes/app_router.dart';
@@ -22,7 +26,7 @@ class CategoriesPage extends StatefulWidget {
 }
 
 class _CategoriesPageState extends State<CategoriesPage> {
-  final TmdbMovieRepository _repository = TmdbMovieRepository();
+  late final CategoriesCubit _cubit;
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
 
@@ -36,36 +40,35 @@ class _CategoriesPageState extends State<CategoriesPage> {
 
   String? _selectedGenre;
   String _query = '';
-  late Future<List<Movie>> _futureMovies;
 
   @override
   void initState() {
     super.initState();
     _selectedGenre = _genres.keys.first;
-    _futureMovies = _repository.fetchMoviesByGenre(_genres[_selectedGenre]!);
+    // API data không còn được gọi trực tiếp trong widget: CategoriesCubit
+    // chịu trách nhiệm gọi TmdbApi (Dio/Retrofit) và phát ra state.
+    _cubit = CategoriesCubit(TmdbApi(buildTmdbDio()))
+      ..loadByGenre(_genres[_selectedGenre]!);
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
     _searchController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
   void _onSearchChanged(String value) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 400), () {
-      setState(() {
-        _query = value.trim();
-        if (_query.isEmpty) {
-          _futureMovies = _repository.fetchMoviesByGenre(
-            _genres[_selectedGenre]!,
-          );
-        } else {
-          _selectedGenre = null;
-          _futureMovies = _repository.searchMovies(_query);
-        }
-      });
+      setState(() => _query = value.trim());
+      if (_query.isEmpty) {
+        _cubit.loadByGenre(_genres[_selectedGenre]!);
+      } else {
+        setState(() => _selectedGenre = null);
+        _cubit.search(_query);
+      }
     });
   }
 
@@ -74,25 +77,28 @@ class _CategoriesPageState extends State<CategoriesPage> {
       _selectedGenre = genre;
       _query = '';
       _searchController.clear();
-      _futureMovies = _repository.fetchMoviesByGenre(_genres[genre]!);
     });
+    _cubit.loadByGenre(_genres[genre]!);
   }
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveContainer(
-      maxWidth: 1100,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSearchBar(context),
-            const SizedBox(height: 16),
-            _buildGenreChips(context),
-            const SizedBox(height: 16),
-            Expanded(child: _buildMovieGrid(context)),
-          ],
+    return BlocProvider.value(
+      value: _cubit,
+      child: ResponsiveContainer(
+        maxWidth: 1100,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSearchBar(context),
+              const SizedBox(height: 16),
+              _buildGenreChips(context),
+              const SizedBox(height: 16),
+              Expanded(child: _buildMovieGrid(context)),
+            ],
+          ),
         ),
       ),
     );
@@ -153,23 +159,22 @@ class _CategoriesPageState extends State<CategoriesPage> {
   }
 
   Widget _buildMovieGrid(BuildContext context) {
-    return FutureBuilder<List<Movie>>(
-      future: _futureMovies,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+    return BlocBuilder<CategoriesCubit, CategoriesState>(
+      builder: (context, state) {
+        if (state is CategoriesInitial || state is CategoriesLoading) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (snapshot.hasError) {
+        if (state is CategoriesError) {
           return Center(
             child: Text(
-              'Không thể tải phim lúc này.',
+              state.message,
               style: TextStyle(color: AppColors.textFadedOf(context)),
             ),
           );
         }
 
-        final movies = snapshot.data ?? [];
+        final movies = (state as CategoriesLoaded).movies;
         if (movies.isEmpty) {
           return Center(
             child: Text(

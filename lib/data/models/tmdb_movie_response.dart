@@ -1,3 +1,5 @@
+import '../../models/movie.dart';
+
 class TmdbMovieResponse {
   const TmdbMovieResponse({required this.results});
 
@@ -43,4 +45,16 @@ class TmdbMovie {
 
   String get posterUrl =>
       posterPath.isEmpty ? '' : 'https://image.tmdb.org/t/p/w500$posterPath';
+}
+
+extension TmdbMovieMapper on TmdbMovie {
+  Movie toMovie({String genre = 'TMDB'}) => Movie(
+    id: id.toString(),
+    title: title,
+    poster: posterUrl,
+    duration: releaseDate.isEmpty ? 'Coming soon' : releaseDate,
+    rating: voteAverage,
+    overview: overview.isEmpty ? 'No overview available.' : overview,
+    genre: genre,
+  );
 }
