@@ -1,6 +1,6 @@
 CINEMA_MOVIE (CineStream) — PROJECT SUMMARY
 =============================================
-Last updated: 2026-08-11
+Last updated: 2026-08-11 (added shimmer skeleton loading + pull-to-refresh)
 (Merged from the former "Project Summary.txt" + "project_summary.txt";
 this is now the single source of truth for both the app overview and the
 BLoC refactor history.)
@@ -54,11 +54,16 @@ HomePage (lib/pages/home_page.dart)
     HomeState>.
   - The banner carousel auto-plays via carousel_slider (CarouselSlider
     .builder) — see BANNER AUTO-PLAY CAROUSEL below.
+  - Loading state renders a shimmer skeleton (skeletonizer) instead of a
+    spinner, and the whole tab supports pull-to-refresh — see SHIMMER
+    SKELETON LOADING + PULL-TO-REFRESH below.
 
 CategoriesPage (lib/pages/categories_page.dart)
   - Displays a grid of movies grouped by genre (chip selector) or by
     search query, backed by CategoriesCubit (loadByGenre / search),
     calling TmdbApi (Dio/Retrofit) — not the legacy repository.
+  - Same shimmer-skeleton + pull-to-refresh treatment as HomePage — see
+    SHIMMER SKELETON LOADING + PULL-TO-REFRESH below.
 
 FavoritesPage (lib/pages/favorites_page.dart)
   - Shows movies marked as favorites via WatchlistState.favoriteMovies
@@ -315,6 +320,68 @@ scroll position, selected genre chip, and search text intact because the
 underlying widgets are never torn down.
 
 
+SHIMMER SKELETON LOADING + PULL-TO-REFRESH (skeletonizer)
+--------------------------------------------------------------
+Background: Home and Categories showed a bare CircularProgressIndicator
+while their Cubit's Initial/Loading state was active, and had no way to
+manually reload data short of navigating away and back (which, post
+IndexedStack, no longer even re-fires the API call — see TAB STATE
+PRESERVATION). Replaced with a shimmer skeleton that mirrors the real
+layout, plus pull-to-refresh, on both screens.
+
+How it works:
+  - Added the `skeletonizer` package. Skeletonizer(enabled: bool, child:
+    ...) wraps the SAME widget tree used for real data — it inspects the
+    child tree and, when enabled, replaces Text/Image/colored-box content
+    with gray shimmering "bone" placeholders sized to match the real
+    widgets, and disables taps/scroll on that content. No separate
+    skeleton-only layout was written for either screen.
+  - Both screens keep a small `static final List<Movie> _fakeMovies`
+    (home_page.dart also has `_fakeGenreMovies`, keyed off
+    HomeCubit.genresToShow so the number of fake genre rows matches what
+    will actually load) — placeholder Movie objects with empty/zero
+    fields, just enough shape (item count, empty poster string so
+    _buildPoster renders a plain colored Container) for Skeletonizer to
+    bone-ify. Only used while state is Initial/Loading.
+  - Both screens now wrap their state-driven content in
+    RefreshIndicator(onRefresh: ...), placed OUTSIDE the state switch so
+    every state (loading, loaded, error, empty) is pull-to-refreshable,
+    not just the happy path:
+      - HomePage: onRefresh calls HomeCubit.loadHome() directly (already
+        returns the right Future<void>).
+      - CategoriesPage: onRefresh calls a new _refresh() helper that
+        replays whatever is currently active — _cubit.search(_query) if
+        there's a search term, else _cubit.loadByGenre(...) for the
+        selected chip (falls back to the first genre if _selectedGenre is
+        somehow null, guarding a pre-existing edge case where clearing
+        the search box after a search didn't reset _selectedGenre).
+  - Error/empty-result views were changed from a bare Center(...) to
+    ListView(physics: AlwaysScrollableScrollPhysics(), children: [...])
+    (a SizedBox sized to ~60-70% of screen height wrapping the centered
+    message), because RefreshIndicator needs a scrollable descendant that
+    can overscroll — a non-scrolling Center() would silently make pull-
+    to-refresh do nothing on those states. The main content ListView/
+    GridView also got AlwaysScrollableScrollPhysics for the same reason
+    (so refresh still works when the loaded list is too short to fill
+    the screen).
+  - Skeletonizer only wraps the Initial/Loading branch; RefreshIndicator
+    wraps everything. A manual pull-to-refresh therefore does NOT
+    reshow the shimmer skeleton (the previous HomeLoaded/CategoriesLoaded
+    state stays on screen while refreshing) — only the very first load
+    shows the skeleton, and RefreshIndicator's own spinner is what
+    indicates a refresh in progress. No conflict between the two, since
+    they're never both "enabled" for the same paint.
+
+Files touched: pubspec.yaml (added skeletonizer); lib/pages/home_page.dart
+(CircularProgressIndicator removed; Skeletonizer + _fakeMovies/
+_fakeGenreMovies + RefreshIndicator added; empty-movies and error views
+switched to scrollable); lib/pages/categories_page.dart
+(CircularProgressIndicator removed; Skeletonizer + _fakeMovies +
+RefreshIndicator + _refresh() added; _buildMovieGrid split into
+_buildGrid()/_buildMessage() helpers reused by both the skeleton and real
+states).
+
+
 FAVORITES PERSISTENCE (Hive, per-user)
 ------------------------------------------
 Background: favorites previously lived only in WatchlistState's in-memory
@@ -389,6 +456,7 @@ DEPENDENCIES
 - hive
 - hive_flutter
 - carousel_slider
+- skeletonizer
 - cupertino_icons
 Dev dependencies (codegen): build_runner, retrofit_generator,
 json_serializable.

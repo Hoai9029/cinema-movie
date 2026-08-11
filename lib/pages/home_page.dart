@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import '../core/theme/app_colors.dart';
 import '../cubit/home_cubit.dart';
 import '../cubit/home_state.dart';
@@ -131,6 +132,39 @@ class _HomeTabContentState extends State<_HomeTabContent> {
   // nghe onPageChanged để biết index hiện tại cho dot indicator.
   int _currentBannerIndex = 0;
 
+  // Dữ liệu giả dùng làm khung xương (skeleton) khi đang tải. Chỉ
+  // cần đúng SỐ LƯỢNG và HÌNH DẠNG (không cần nội dung thật) vì
+  // Skeletonizer sẽ tự thay các Text/Image bên trong bằng khối bone
+  // màu xám lấp lánh (shimmer), giữ nguyên kích thước layout thật.
+  static final List<Movie> _fakeMovies = List.generate(
+    8,
+    (i) => Movie(
+      id: 'fake-$i',
+      title: 'Đang tải tên phim',
+      poster: '',
+      duration: '',
+      rating: 0,
+      overview: '',
+      genre: '',
+    ),
+  );
+
+  static final Map<String, List<Movie>> _fakeGenreMovies = {
+    for (final entry in HomeCubit.genresToShow.entries)
+      entry.value: List.generate(
+        4,
+        (i) => Movie(
+          id: 'fake-${entry.key}-$i',
+          title: 'Đang tải tên phim',
+          poster: '',
+          duration: '',
+          rating: 0,
+          overview: '',
+          genre: '',
+        ),
+      ),
+  };
+
   @override
   void initState() {
     super.initState();
@@ -153,22 +187,38 @@ class _HomeTabContentState extends State<_HomeTabContent> {
         maxWidth: 1000,
         child: BlocBuilder<HomeCubit, HomeState>(
           builder: (context, state) {
-            return switch (state) {
-              HomeInitial() || HomeLoading() => const Center(
-                child: CircularProgressIndicator(),
-              ),
-              HomeError(:final message) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(message, textAlign: TextAlign.center),
+            // RefreshIndicator bọc NGOÀI mọi state (kể cả lỗi) để
+            // người dùng luôn có thể kéo-để-tải-lại, không chỉ khi
+            // đã có dữ liệu. onRefresh gọi lại đúng hàm loadHome()
+            // cũ trong HomeCubit — không viết logic fetch riêng.
+            return RefreshIndicator(
+              onRefresh: _cubit.loadHome,
+              child: switch (state) {
+                HomeInitial() || HomeLoading() => Skeletonizer(
+                  enabled: true,
+                  child: _buildLoaded(context, _fakeMovies, _fakeGenreMovies),
                 ),
-              ),
-              HomeLoaded(:final movies, :final genreMovies) => _buildLoaded(
-                context,
-                movies,
-                genreMovies,
-              ),
-            };
+                HomeError(:final message) => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.7,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(message, textAlign: TextAlign.center),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                HomeLoaded(:final movies, :final genreMovies) => _buildLoaded(
+                  context,
+                  movies,
+                  genreMovies,
+                ),
+              },
+            );
           },
         ),
       ),
@@ -181,14 +231,24 @@ class _HomeTabContentState extends State<_HomeTabContent> {
     Map<String, List<Movie>> genreMovies,
   ) {
     if (movies.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Text(
-            'Không thể tải phim từ TMDB lúc này.',
-            textAlign: TextAlign.center,
+      // ListView (thay vì Center) để RefreshIndicator vẫn kéo được
+      // ngay cả khi danh sách rỗng.
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'Không thể tải phim từ TMDB lúc này.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       );
     }
 
@@ -206,6 +266,7 @@ class _HomeTabContentState extends State<_HomeTabContent> {
         : movies;
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
         CarouselSlider.builder(

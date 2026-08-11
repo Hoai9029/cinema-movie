@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import '../core/theme/app_colors.dart';
 import '../cubit/categories_cubit.dart';
 import '../cubit/categories_state.dart';
@@ -40,6 +41,30 @@ class _CategoriesPageState extends State<CategoriesPage> {
 
   String? _selectedGenre;
   String _query = '';
+
+  // Dữ liệu giả chỉ để dựng khung xương (skeleton) lưới phim khi
+  // đang tải — Skeletonizer sẽ thay ảnh/tiêu đề bằng khối bone xám
+  // lấp lánh, giữ nguyên hình dạng GridView thật.
+  static final List<Movie> _fakeMovies = List.generate(
+    12,
+    (i) => Movie(
+      id: 'fake-$i',
+      title: 'Đang tải tên phim',
+      poster: '',
+      duration: '',
+      rating: 0,
+      overview: '',
+      genre: '',
+    ),
+  );
+
+  // Tải lại đúng dữ liệu đang hiển thị (theo từ khoá tìm kiếm nếu có,
+  // ngược lại theo thể loại đang chọn) — dùng chung cho pull-to-refresh.
+  Future<void> _refresh() {
+    return _query.isEmpty
+        ? _cubit.loadByGenre(_genres[_selectedGenre ?? _genres.keys.first]!)
+        : _cubit.search(_query);
+  }
 
   @override
   void initState() {
@@ -161,46 +186,70 @@ class _CategoriesPageState extends State<CategoriesPage> {
   Widget _buildMovieGrid(BuildContext context) {
     return BlocBuilder<CategoriesCubit, CategoriesState>(
       builder: (context, state) {
-        if (state is CategoriesInitial || state is CategoriesLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
+        // RefreshIndicator bọc NGOÀI mọi state (kể cả lỗi/rỗng) để
+        // luôn kéo-để-tải-lại được. onRefresh gọi lại đúng hàm cubit
+        // đang dùng (loadByGenre hoặc search) qua _refresh().
+        return RefreshIndicator(
+          onRefresh: _refresh,
+          child: switch (state) {
+            CategoriesInitial() || CategoriesLoading() => Skeletonizer(
+              enabled: true,
+              child: _buildGrid(context, _fakeMovies),
+            ),
+            CategoriesError(:final message) => _buildMessage(
+              context,
+              message,
+            ),
+            CategoriesLoaded(:final movies) => movies.isEmpty
+                ? _buildMessage(
+                    context,
+                    _query.isEmpty
+                        ? 'Không tìm thấy phim cho thể loại này.'
+                        : 'Không tìm thấy phim phù hợp với "$_query".',
+                  )
+                : _buildGrid(context, movies),
+          },
+        );
+      },
+    );
+  }
 
-        if (state is CategoriesError) {
-          return Center(
+  // Thông báo (lỗi / rỗng) đặt trong ListView có
+  // AlwaysScrollableScrollPhysics để RefreshIndicator vẫn kéo được
+  // dù nội dung không tràn màn hình.
+  Widget _buildMessage(BuildContext context, String message) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Center(
             child: Text(
-              state.message,
+              message,
+              textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.textFadedOf(context)),
             ),
-          );
-        }
+          ),
+        ),
+      ],
+    );
+  }
 
-        final movies = (state as CategoriesLoaded).movies;
-        if (movies.isEmpty) {
-          return Center(
-            child: Text(
-              _query.isEmpty
-                  ? 'Không tìm thấy phim cho thể loại này.'
-                  : 'Không tìm thấy phim phù hợp với "$_query".',
-              style: TextStyle(color: AppColors.textFadedOf(context)),
-            ),
-          );
-        }
-
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final columns = responsiveGridColumns(constraints.maxWidth);
-            return GridView.builder(
-              itemCount: movies.length,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 0.58,
-              ),
-              itemBuilder: (context, index) {
-                return _MovieGridTile(movie: movies[index]);
-              },
-            );
+  Widget _buildGrid(BuildContext context, List<Movie> movies) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = responsiveGridColumns(constraints.maxWidth);
+        return GridView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: movies.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+            childAspectRatio: 0.58,
+          ),
+          itemBuilder: (context, index) {
+            return _MovieGridTile(movie: movies[index]);
           },
         );
       },
