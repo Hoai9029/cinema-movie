@@ -52,6 +52,8 @@ HomePage (lib/pages/home_page.dart)
     carousel, "Trending" row, "Recommended For You" row, and per-genre
     "Tương tự" (similar) rows, all driven by one BlocBuilder<HomeCubit,
     HomeState>.
+  - The banner carousel auto-plays via carousel_slider (CarouselSlider
+    .builder) — see BANNER AUTO-PLAY CAROUSEL below.
 
 CategoriesPage (lib/pages/categories_page.dart)
   - Displays a grid of movies grouped by genre (chip selector) or by
@@ -64,7 +66,15 @@ FavoritesPage (lib/pages/favorites_page.dart)
     looked up elsewhere).
 
 ProfilePage (lib/pages/profile_page.dart)
-  - Displays static profile info, watch history, and a theme toggle.
+  - Displays static profile info, watch history, a theme toggle, and a
+    "Đăng xuất" (Log out) button pinned at the bottom of the list.
+  - _handleLogout() calls FirebaseAuthRepository().signOut(), then
+    Navigator.pushNamedAndRemoveUntil(AppRoutes.login, (route) => false)
+    to clear the nav stack so the user can't navigate back into the app
+    post-logout. Signing out also fires WatchlistState's
+    authStateChanges listener (see FAVORITES PERSISTENCE below), which
+    closes that user's Hive box and clears in-memory favorites — no
+    extra wiring needed in ProfilePage itself.
 
 
 MOVIE DETAILS AND PLAYBACK
@@ -238,6 +248,38 @@ creates and owns its Cubit locally (same pattern as MovieDetailPage),
 avoiding accidental app-wide state or duplicate BLoCs.
 
 
+BANNER AUTO-PLAY CAROUSEL (carousel_slider)
+-----------------------------------------------
+Background: the Home tab's featured banner only responded to manual
+swipe. Replaced with the carousel_slider package so it auto-advances,
+while keeping manual swipe and the existing dot indicator/UI unchanged.
+
+Before: PageView.builder + a manually created PageController
+(viewportFraction: 0.9) in _HomeTabContentState, with `_currentBannerIndex`
+updated via PageView's onPageChanged and rendered by a hand-built
+List.generate Row of dots. No auto-scroll — nothing ever called
+animateToPage.
+
+After (lib/pages/home_page.dart):
+  - PageView.builder -> CarouselSlider.builder (same banners list, same
+    _buildBannerCard() item widget, unchanged).
+  - CarouselOptions: height 220, viewportFraction 0.9, autoPlay: true,
+    autoPlayInterval: Duration(seconds: 5), autoPlayAnimationDuration:
+    Duration(milliseconds: 600), enableInfiniteScroll: true.
+  - onPageChanged(index, reason) still just does
+    setState(() => _currentBannerIndex = index) — the dot indicator Row
+    below the banner was left untouched since it only depends on that
+    field.
+  - Removed: the manual PageController field, its creation in initState(),
+    and its dispose() call (CarouselSlider manages its own PageController
+    internally).
+  - pubspec.yaml: added carousel_slider: ^5.0.0.
+
+Manual swipe still works because CarouselSlider forwards drag gestures to
+its internal PageView the same way the old code's PageView did; autoPlay
+just adds a periodic timer that calls the equivalent of animateToPage.
+
+
 TAB STATE PRESERVATION (IndexedStack)
 ----------------------------------------
 Follow-up bug found after the BLoC migration: switching between the
@@ -346,6 +388,7 @@ DEPENDENCIES
 - youtube_player_flutter
 - hive
 - hive_flutter
+- carousel_slider
 - cupertino_icons
 Dev dependencies (codegen): build_runner, retrofit_generator,
 json_serializable.
