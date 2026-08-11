@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/theme/app_colors.dart';
 import '../data/watchlist_state.dart';
+import '../widgets/favorite_toast.dart';
 import '../widgets/responsive_container.dart';
 import '../routes/app_router.dart';
 
@@ -116,7 +117,8 @@ class FavoritesPage extends StatelessWidget {
                         Icons.favorite,
                         color: AppColors.primary,
                       ),
-                      onPressed: () => watchlist.toggleFavorite(movie),
+                      onPressed: () =>
+                          handleFavoriteToggle(context, watchlist, movie),
                     ),
                   ],
                 ),

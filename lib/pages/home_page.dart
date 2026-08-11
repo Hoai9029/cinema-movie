@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 import '../core/theme/app_colors.dart';
 import '../cubit/home_cubit.dart';
 import '../cubit/home_state.dart';
@@ -34,18 +35,19 @@ class _HomePageState extends State<HomePage> {
 
   static const _titles = ['Trang chủ', 'Danh mục', 'Yêu thích', 'Hồ sơ'];
 
+  // Widget Tree: mỗi tab tương ứng với MỘT widget con riêng biệt.
+  // Khai báo MỘT LẦN ở đây (không phải trong build()) và giữ nguyên
+  // instance trong suốt vòng đời của _HomePageState, để IndexedStack
+  // bên dưới luôn nhận đúng cùng 4 widget mỗi lần build.
+  static const _tabs = <Widget>[
+    _HomeTabContent(),
+    CategoriesPage(),
+    FavoritesPage(),
+    ProfilePage(),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    // Widget Tree: mỗi tab tương ứng với MỘT widget con riêng biệt.
-    // Scaffold chỉ hiển thị đúng 1 trong 4 widget này tại một thời
-    // điểm, dựa theo _selectedIndex.
-    final tabs = <Widget>[
-      const _HomeTabContent(),
-      const CategoriesPage(),
-      const FavoritesPage(),
-      const ProfilePage(),
-    ];
-
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
       appBar: AppBar(
@@ -61,7 +63,17 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: tabs[_selectedIndex],
+      // IndexedStack giữ CẢ 4 tab luôn mounted trong cây widget cùng
+      // lúc (chỉ ẩn/hiện bằng cách chọn index để vẽ), thay vì trước
+      // đây body chỉ chứa DUY NHẤT 1 widget (tabs[_selectedIndex]).
+      // Khi chỉ 1 widget tồn tại trong tree, chuyển tab sẽ làm Flutter
+      // dispose() State của tab cũ và tạo State mới toanh cho tab kế
+      // tiếp mỗi khi quay lại — mất vị trí cuộn, mất lựa chọn thể
+      // loại, và HomeCubit/CategoriesCubit bị tạo lại nên gọi lại API
+      // từ đầu. Với IndexedStack, State của cả 4 tab (và Cubit của
+      // chúng) chỉ được tạo đúng 1 lần, tồn tại xuyên suốt vòng đời
+      // HomePage.
+      body: IndexedStack(index: _selectedIndex, children: _tabs),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         // setState báo Flutter: "dữ liệu vừa đổi, vẽ lại giao diện đi".
@@ -115,13 +127,13 @@ class _HomeTabContentState extends State<_HomeTabContent> {
   late final HomeCubit _cubit;
 
   // Chỉ số banner đang hiển thị, dùng để tô đậm dot indicator.
+  // CarouselSlider tự quản lý việc scroll/auto-play; ta chỉ cần lắng
+  // nghe onPageChanged để biết index hiện tại cho dot indicator.
   int _currentBannerIndex = 0;
-  late final PageController _bannerController;
 
   @override
   void initState() {
     super.initState();
-    _bannerController = PageController(viewportFraction: 0.9);
     // API data không còn được gọi trực tiếp trong widget: HomeCubit
     // chịu trách nhiệm gọi TmdbApi (Dio/Retrofit) và phát ra state.
     _cubit = HomeCubit(TmdbApi(buildTmdbDio()))..loadHome();
@@ -129,7 +141,6 @@ class _HomeTabContentState extends State<_HomeTabContent> {
 
   @override
   void dispose() {
-    _bannerController.dispose();
     _cubit.close();
     super.dispose();
   }
@@ -197,19 +208,23 @@ class _HomeTabContentState extends State<_HomeTabContent> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        SizedBox(
-          height: 220,
-          child: PageView.builder(
-            controller: _bannerController,
-            itemCount: banners.length,
-            onPageChanged: (index) {
+        CarouselSlider.builder(
+          itemCount: banners.length,
+          itemBuilder: (context, index, realIndex) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: _buildBannerCard(context, banners[index]),
+            );
+          },
+          options: CarouselOptions(
+            height: 220,
+            viewportFraction: 0.9,
+            enableInfiniteScroll: true,
+            autoPlay: true,
+            autoPlayInterval: const Duration(seconds: 5),
+            autoPlayAnimationDuration: const Duration(milliseconds: 600),
+            onPageChanged: (index, reason) {
               setState(() => _currentBannerIndex = index);
-            },
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: _buildBannerCard(context, banners[index]),
-              );
             },
           ),
         ),
@@ -432,11 +447,3 @@ class _HomeTabContentState extends State<_HomeTabContent> {
     return Container(color: AppColors.cardOf(context));
   }
 }
-
-// ============================================================
-// GHI CHÚ: thêm dòng sau vào pubspec.yaml (mục dependencies) rồi
-// chạy `flutter pub get` để dùng được carousel_slider:
-//
-//   dependencies:
-//     carousel_slider: ^4.2.1
-// ============================================================

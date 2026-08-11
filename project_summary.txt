@@ -1,58 +1,203 @@
-CINEMA_MOVIE — PROJECT SUMMARY
-================================
-Last updated: 2026-08-10
-
-TASK
-----
-Mentor instruction: "Change FutureBuilder (used for fetching API data) to
-BlocBuilder", using home_part.dart as the guiding example.
-
-Note: no file named home_part.dart exists in the project. The home-tab
-logic actually lives in lib/pages/home_page.dart, so that file was treated
-as the intended target.
-
-SCOPE DECIDED WITH USER
-------------------------
-1. Data source: migrate Home/Categories onto the same Dio + Retrofit
-   (TmdbApi) client already used by the Movie Detail screen, instead of
-   keeping the legacy http-based TmdbMovieRepository.
-2. Also refactor lib/pages/categories_page.dart (same FutureBuilder
-   pattern), not just home_page.dart.
+CINEMA_MOVIE (CineStream) — PROJECT SUMMARY
+=============================================
+Last updated: 2026-08-11
+(Merged from the former "Project Summary.txt" + "project_summary.txt";
+this is now the single source of truth for both the app overview and the
+BLoC refactor history.)
 
 
-BEFORE — ARCHITECTURE
-----------------------
-Two parallel data-fetching stacks coexisted:
+OVERVIEW
+--------
+- CineStream is a Flutter movie streaming/demo application.
+- Uses Firebase Authentication for email/password login and Provider for
+  simple app-wide state (favorites, theme).
+- Favorites persist locally per-user via Hive (see FAVORITES PERSISTENCE
+  below) — no server-side storage for the like/favorite feature.
+- All movie data (Home, Categories, Movie Detail) is fetched live from
+  TMDB through Dio/Retrofit + flutter_bloc Cubits — see STATE MANAGEMENT
+  below for how that came to be and why.
+- Supports dark/light theme switching and a 4-tab bottom-navigation shell
+  whose tabs stay alive when switching between them (see TAB STATE
+  PRESERVATION).
 
+
+CORE ARCHITECTURE
+-----------------
+Entry point: lib/main.dart
+  - Initializes Firebase using firebase_options.dart.
+  - Calls `await Hive.initFlutter()` before runApp so WatchlistState can
+    open per-user Hive boxes (see FAVORITES PERSISTENCE below).
+  - Sets up MultiProvider with WatchlistState and ThemeModeState.
+  - Launches the app with MaterialApp and dynamic theme selection.
+
+
+SCREENS AND NAVIGATION
+-----------------------
+SplashPage (lib/pages/splash_page.dart)
+  - Displays app logo and loading indicator for 2 seconds.
+  - Navigates automatically to LoginPage.
+
+LoginPage (lib/pages/login_page.dart)
+  - Allows users to sign in or register with email and password.
+  - Uses FirebaseAuthRepository for authentication.
+
+HomePage (lib/pages/home_page.dart)
+  - App shell with BottomNavigationBar and four tabs: Home, Categories,
+    Favorites, Profile.
+  - The four tab widgets are mounted via IndexedStack (not swapped one at
+    a time) so each tab's State — and therefore its Cubit, scroll
+    position, and any in-progress selection — survives switching tabs.
+    See TAB STATE PRESERVATION below.
+  - _HomeTabContent (the "Home" tab body) is backed by HomeCubit: banner
+    carousel, "Trending" row, "Recommended For You" row, and per-genre
+    "Tương tự" (similar) rows, all driven by one BlocBuilder<HomeCubit,
+    HomeState>.
+  - The banner carousel auto-plays via carousel_slider (CarouselSlider
+    .builder) — see BANNER AUTO-PLAY CAROUSEL below.
+
+CategoriesPage (lib/pages/categories_page.dart)
+  - Displays a grid of movies grouped by genre (chip selector) or by
+    search query, backed by CategoriesCubit (loadByGenre / search),
+    calling TmdbApi (Dio/Retrofit) — not the legacy repository.
+
+FavoritesPage (lib/pages/favorites_page.dart)
+  - Shows movies marked as favorites via WatchlistState.favoriteMovies
+    (the full Movie objects are stored in WatchlistState itself, not
+    looked up elsewhere).
+
+ProfilePage (lib/pages/profile_page.dart)
+  - Displays static profile info, watch history, a theme toggle, and a
+    "Đăng xuất" (Log out) button pinned at the bottom of the list.
+  - _handleLogout() calls FirebaseAuthRepository().signOut(), then
+    Navigator.pushNamedAndRemoveUntil(AppRoutes.login, (route) => false)
+    to clear the nav stack so the user can't navigate back into the app
+    post-logout. Signing out also fires WatchlistState's
+    authStateChanges listener (see FAVORITES PERSISTENCE below), which
+    closes that user's Hive box and clears in-memory favorites — no
+    extra wiring needed in ProfilePage itself.
+
+
+MOVIE DETAILS AND PLAYBACK
+----------------------------
+MovieDetailPage (lib/pages/movie_detail_page.dart)
+  - Backed by MovieDetailCubit (lib/cubit/movie_detail_cubit.dart), which
+    fires 4 TMDB requests in parallel (detail, credits, videos, similar
+    movies) via a Dart records `.wait`, and exposes
+    Initial/Loading/Loaded/Error states (lib/cubit/movie_detail_state.dart).
+  - Shows backdrop/poster, title, rating, runtime, genre chips, overview,
+    a horizontally scrolling cast list (photo + name), and a horizontally
+    scrolling "similar movies" list.
+  - Tapping a similar movie pushes a new MovieDetailPage for it (recursive
+    navigation).
+  - Allows toggling favorite status and navigating to WatchPage.
+  - Dedicated loading spinner and error view with a retry button.
+  - Trailer preview: the circular play button on the backdrop header only
+    renders when MovieDetailBundle.trailerVideo (first video with
+    type == "Trailer" and site == "YouTube") is non-null; tapping it
+    pushes TrailerPlayerPage. No trailer means the button is simply
+    hidden (no crash, no dead control).
+  - Hero animation: accepts an optional `heroTag` constructor param
+    (defaults to 'poster-${movie.id}') and wraps the header poster/backdrop
+    in a matching Hero. Because the header shows movie.poster as a
+    fallback until the TMDB detail call resolves, and the destination
+    route builds synchronously on push (before that async fetch
+    completes), the Hero flight always animates poster -> poster; the
+    later swap to the real backdrop is a plain post-flight content
+    update, not part of the animation.
+
+TrailerPlayerPage (lib/pages/trailer_player_page.dart)
+  - Plays the YouTube trailer in-app via youtube_player_flutter's
+    YoutubePlayer widget.
+
+WatchPage (lib/pages/watch_page.dart)
+  - Simulates a movie playback experience with a timer and seek slider.
+
+
+DATA AND SERVICES
+-------------------
+Movie model: lib/models/movie.dart
+  - Defines movie properties: id, title, poster, duration, rating,
+    overview, genre.
+  - toJson()/fromJson() added for Hive persistence (see FAVORITES
+    PERSISTENCE below); all fields are primitives (String/double) so no
+    Hive TypeAdapter/codegen is needed — the Map is stored as-is.
+
+TMDB Retrofit API: lib/data/api/tmdb_api.dart (+ generated tmdb_api.g.dart)
+  - Dio/Retrofit client, now the ONLY TMDB entry point used by the app.
+  - Endpoints: getMovieDetail, getCredits, getVideos, getSimilarMovies
+    (used by MovieDetailCubit); getTrendingMovies, getMoviesByGenre,
+    searchMovies (used by HomeCubit and CategoriesCubit — added during
+    the FutureBuilder -> BLoC refactor, see below).
+
+TMDB Dio client: lib/data/api/tmdb_dio_client.dart
+  - Builds the Dio instance and injects the TMDB API key/bearer token via
+    an interceptor (buildTmdbDio()).
+
+TMDB response models:
+  - lib/data/models/tmdb_movie_response.dart — hand-written TmdbMovie /
+    TmdbMovieResponse DTOs, plus the TmdbMovieMapper extension
+    (`TmdbMovie.toMovie()`) that is the single place converting a TMDB
+    DTO into the app's Movie entity. Shared by HomeCubit, CategoriesCubit,
+    and MovieDetailCubit.
+  - lib/data/models/tmdb_movie_detail_response.dart — json_serializable
+    models for movie detail, genres, cast, and videos.
+
+TMDB config: lib/config/tmdb_secrets.dart
+  - Stores TMDB API key and access token.
+
+Legacy TMDB repository: lib/data/repositories/tmdb_movie_repository.dart
+  - The original `http`-based client (fetchTrendingMovies /
+    fetchMoviesByGenre / searchMovies). No longer called by any screen —
+    Home and Categories were migrated onto TmdbApi (see STATE MANAGEMENT)
+    — but intentionally left in the codebase since it's still covered by
+    test/tmdb_movie_repository_test.dart and removal wasn't requested.
+
+Firebase Auth repository: lib/data/auth/firebase_auth_repository.dart
+  - Handles sign in, registration, sign out, and auth state changes.
+
+App state (Provider / ChangeNotifier):
+  - WatchlistState (lib/data/watchlist_state.dart): manages favorite
+    movies, keyed by id but storing the full Movie object (poster/title/
+    etc. come from TMDB, so the favorites screen needs more than just an
+    id to render). Backed by a per-user Hive box — see FAVORITES
+    PERSISTENCE below.
+  - ThemeModeState (lib/data/theme_mode_state.dart): manages light/dark
+    theme state.
+
+
+STATE MANAGEMENT — FutureBuilder -> BLoC MIGRATION
+-----------------------------------------------------
+Background: the app originally had two parallel TMDB integration styles —
+MovieDetailPage used Dio/Retrofit + flutter_bloc (MovieDetailCubit), while
+Home and Categories used the plain `http`-based TmdbMovieRepository behind
+a raw FutureBuilder. A mentor review asked for that to be unified: replace
+FutureBuilder (API fetching) with BlocBuilder everywhere, following the
+Movie Detail screen's existing pattern rather than inventing a new one.
+
+Before:
   Legacy stack (Home, Categories):
     Widget (StatefulWidget)
       -> TmdbMovieRepository (http package, manual JSON parsing)
       -> FutureBuilder<...> in build()
       -> UI driven by AsyncSnapshot (waiting / error / data)
-
   New stack (Movie Detail only):
-    Widget
-      -> BlocProvider creates MovieDetailCubit(TmdbApi(buildTmdbDio()))
+    Widget -> BlocProvider creates MovieDetailCubit(TmdbApi(buildTmdbDio()))
       -> Cubit awaits Dio/Retrofit calls, emits sealed states
       -> BlocBuilder<MovieDetailCubit, MovieDetailState>
-      -> UI driven by state switch (Initial/Loading/Loaded/Error)
 
-Problems with the legacy stack relative to the mentor's ask:
-  - Widgets called the repository directly (API concerns leaking into UI).
-  - No shared state class; each page reimplemented waiting/error/empty
-    handling inline inside FutureBuilder.builder().
-  - home_page.dart had TWO independent FutureBuilders (one nested inside
-    the other's build output) for trending/recommended vs. genre-grouped
-    "similar" sections.
+  Problems this caused: widgets called the repository directly (API
+  concerns leaking into UI); no shared state class, so each page
+  reimplemented waiting/error/empty handling inline; home_page.dart had
+  TWO independent FutureBuilders (one nested inside the other's build
+  output) for trending/recommended vs. genre-grouped "similar" sections.
 
-
-AFTER — ARCHITECTURE (applied consistently to Home, Categories, and
-Movie Detail)
-----------------------------------------------------------------------
+After (now applied identically to Home, Categories, and Movie Detail):
   UI (StatefulWidget page)
-    -> creates Cubit once in initState(), injected with TmdbApi(buildTmdbDio())
+    -> creates Cubit once in initState(), injected with
+       TmdbApi(buildTmdbDio())
     -> BlocProvider.value(value: cubit) wraps the subtree
-    -> Cubit method (e.g. loadHome(), loadByGenre(), search()) is called
+    -> Cubit method (loadHome() / loadByGenre() / search() /
+       loadMovieDetail()) is called
     -> Cubit emits: Initial -> Loading -> Loaded(data) | Error(message)
     -> BlocBuilder<Cubit, State> switches on the sealed state
     -> UI renders spinner / error text / actual content per state
@@ -63,119 +208,243 @@ Movie Detail)
     Cubit maps DTOs -> app Movie model via TmdbMovieMapper.toMovie()
     Cubit emits final state -> BlocBuilder rebuilds UI
 
+Cubits (lib/cubit/):
+  - movie_detail_cubit.dart + movie_detail_state.dart (pre-existing;
+    updated to reuse TmdbMovieMapper.toMovie() instead of an inline map()
+    literal — no behavior change).
+  - home_cubit.dart + home_state.dart (new): HomeCubit.loadHome() awaits
+    getTrendingMovies() and a per-genre discover loop concurrently (Dart
+    record `.wait`), maps results via toMovie(), emits
+    HomeLoaded(movies, genreMovies) or HomeError(message). Genre list
+    (Action/Comedy/Drama/Romance/Fantasy with TMDB ids) preserved from the
+    original home_page.dart implementation.
+  - categories_cubit.dart + categories_state.dart (new): CategoriesCubit
+    exposes loadByGenre(genreId) and search(query), each emitting
+    Loading then Loaded(movies)/Error(message).
 
-FILES CHANGED
+Files touched by the migration:
+  - lib/data/api/tmdb_api.dart — added getTrendingMovies(),
+    getMoviesByGenre(genreId, sortBy, page), searchMovies(query, page).
+  - lib/data/api/tmdb_api.g.dart — regenerated via
+    `dart run build_runner build` (generated code, not hand-edited).
+  - lib/data/models/tmdb_movie_response.dart — added TmdbMovieMapper.
+  - lib/cubit/movie_detail_cubit.dart — reuse TmdbMovieMapper.
+  - lib/pages/home_page.dart — both FutureBuilders removed; HomeCubit
+    created in initState, BlocProvider + BlocBuilder drive the UI;
+    _buildGenreSections() now takes the loaded genreMovies map as a
+    parameter instead of owning its own FutureBuilder.
+  - lib/pages/categories_page.dart — FutureBuilder removed;
+    CategoriesCubit created once in initState (initial genre load);
+    _onSearchChanged / _onGenreSelected call cubit.search(...) /
+    cubit.loadByGenre(...) instead of reassigning a Future in setState().
+  - test/movie_detail_cubit_test.dart — the fake _FakeTmdbApi test double
+    implements TmdbApi, so it needed the 3 new interface methods added to
+    keep compiling as a concrete class.
+
+Deliberately left unchanged: UI layout, colors, spacing, navigation,
+MovieCard/Hero animations; TMDB API endpoints, JSON field names, and the
+Movie model. No global BlocProvider was introduced — each page still
+creates and owns its Cubit locally (same pattern as MovieDetailPage),
+avoiding accidental app-wide state or duplicate BLoCs.
+
+
+BANNER AUTO-PLAY CAROUSEL (carousel_slider)
+-----------------------------------------------
+Background: the Home tab's featured banner only responded to manual
+swipe. Replaced with the carousel_slider package so it auto-advances,
+while keeping manual swipe and the existing dot indicator/UI unchanged.
+
+Before: PageView.builder + a manually created PageController
+(viewportFraction: 0.9) in _HomeTabContentState, with `_currentBannerIndex`
+updated via PageView's onPageChanged and rendered by a hand-built
+List.generate Row of dots. No auto-scroll — nothing ever called
+animateToPage.
+
+After (lib/pages/home_page.dart):
+  - PageView.builder -> CarouselSlider.builder (same banners list, same
+    _buildBannerCard() item widget, unchanged).
+  - CarouselOptions: height 220, viewportFraction 0.9, autoPlay: true,
+    autoPlayInterval: Duration(seconds: 5), autoPlayAnimationDuration:
+    Duration(milliseconds: 600), enableInfiniteScroll: true.
+  - onPageChanged(index, reason) still just does
+    setState(() => _currentBannerIndex = index) — the dot indicator Row
+    below the banner was left untouched since it only depends on that
+    field.
+  - Removed: the manual PageController field, its creation in initState(),
+    and its dispose() call (CarouselSlider manages its own PageController
+    internally).
+  - pubspec.yaml: added carousel_slider: ^5.0.0.
+
+Manual swipe still works because CarouselSlider forwards drag gestures to
+its internal PageView the same way the old code's PageView did; autoPlay
+just adds a periodic timer that calls the equivalent of animateToPage.
+
+
+TAB STATE PRESERVATION (IndexedStack)
+----------------------------------------
+Follow-up bug found after the BLoC migration: switching between the
+bottom-nav tabs (Home / Categories / Favorites / Profile) reloaded each
+screen from scratch — lost scroll position, lost the selected genre chip
+on Categories, and re-fired the TMDB API calls every time.
+
+Cause: _HomePageState.build() only ever placed ONE tab widget in the
+tree at a time —
+    body: tabs[_selectedIndex]
+When _selectedIndex changed, the previously shown tab widget was removed
+from the tree entirely, so Flutter disposed its whole State: HomeCubit /
+CategoriesCubit got closed, PageController / TextEditingController got
+disposed, scroll offsets were lost. Navigating back to that tab mounted a
+brand-new widget instance, so initState() ran again — a new Cubit was
+created and loadHome()/loadByGenre() fired again from zero.
+
+Fix: lib/pages/home_page.dart now keeps a single, non-rebuilt list of the
+four tabs (`static const _tabs`) and renders them via IndexedStack:
+    body: IndexedStack(index: _selectedIndex, children: _tabs)
+IndexedStack mounts all four tab widgets simultaneously and only toggles
+which one paints/hit-tests based on `index` — nothing is ever disposed on
+tab switch. AutomaticKeepAliveClientMixin was NOT needed: that mixin
+exists for widgets that lazily build/discard off-screen children (e.g.
+PageView, TabBarView); with a fixed IndexedStack and only 4 tabs,
+everything stays resident for free.
+
+Effect: each tab's State (and therefore its Cubit, created once in
+initState()) now lives for the entire lifetime of HomePage. loadHome()/
+loadByGenre() only run the first time a tab is built; revisiting a tab
+afterward just re-paints its already-loaded state via BlocBuilder, with
+scroll position, selected genre chip, and search text intact because the
+underlying widgets are never torn down.
+
+
+FAVORITES PERSISTENCE (Hive, per-user)
+------------------------------------------
+Background: favorites previously lived only in WatchlistState's in-memory
+Map — lost on app restart and not scoped to any account, so switching
+users on the same device would leak/mix favorites. Replaced with Hive
+local storage, boxed per Firebase uid, with no server round-trip.
+
+Design:
+  - Box name: `favorites_<uid>` (lib/data/watchlist_state.dart,
+    `_boxNameFor`). One box per Firebase user; never a single shared box
+    (see rationale below).
+  - WatchlistState subscribes to FirebaseAuth.authStateChanges() itself
+    in its constructor (no external wiring needed in main.dart/pages)
+    and reacts on every login/logout/account-switch event:
+      1. Close the previously open box (if any) and clear the in-memory
+         `_favorites` map — guarantees no stale uid's data lingers in
+         RAM across the transition.
+      2. If a user is now signed in, open `favorites_<uid>` and load
+         every stored entry into `_favorites` via Movie.fromJson.
+      3. notifyListeners() so FavoritesPage/MovieDetailPage repaint.
+  - toggleFavorite() still returns synchronously (debounce logic
+    unchanged) — box.put()/box.delete() are fired without `await`,
+    since Hive writes are local and don't need to block the UI on I/O.
+  - dispose() cancels the auth subscription and closes the box.
+
+Why box-per-uid instead of one shared box: keying everything by
+movie.id in a single box means two different users liking the same
+movie id collide on the same key — last write wins, and neither user
+sees a correct list. Per-uid boxes give each account an isolated
+keyspace for free and make logout trivial (close the box, nothing to
+filter by uid).
+
+Why boxes are closed but not deleted on sign-out: plain sign-out keeps
+the box on disk so the same user gets their favorites back on next
+login on that device. Only an explicit "delete my account" flow should
+call Hive.deleteBoxFromDisk('favorites_<uid>') — normal sign-out
+destroying local data would be an unexpected data loss for the user.
+
+Files touched: pubspec.yaml (added hive, hive_flutter); lib/main.dart
+(Hive.initFlutter() before runApp); lib/models/movie.dart (toJson/
+fromJson); lib/data/watchlist_state.dart (rewritten as described above).
+No changes needed in FavoritesPage, MovieDetailPage, or the toast/toggle
+UI — WatchlistState's public API (isFavorite/favoriteMovies/
+toggleFavorite) is unchanged.
+
+
+THEME AND UI
 -------------
-lib/data/api/tmdb_api.dart
-  Added 3 new Retrofit endpoints so Home/Categories no longer need the
-  legacy repository:
-    GET /trending/movie/day        -> getTrendingMovies()
-    GET /discover/movie            -> getMoviesByGenre(genreId, sortBy, page)
-    GET /search/movie              -> searchMovies(query, page)
-
-lib/data/api/tmdb_api.g.dart
-  Regenerated via `dart run build_runner build` to implement the 3 new
-  endpoints (generated code, not hand-edited).
-
-lib/data/models/tmdb_movie_response.dart
-  Added extension TmdbMovieMapper on TmdbMovie with toMovie(), the single
-  place that converts a TMDB DTO into the app's Movie entity. Reused by
-  HomeCubit, CategoriesCubit, and MovieDetailCubit (previously each cubit
-  duplicated this mapping inline).
-
-lib/cubit/movie_detail_cubit.dart
-  Switched similar-movies mapping to use TmdbMovieMapper.toMovie() instead
-  of an inline map() literal. No behavior change.
-
-lib/pages/home_page.dart
-  _HomeTabContentState:
-    - Removed TmdbMovieRepository field and both `Future<...>` fields.
-    - HomeCubit created once in initState(), closed in dispose().
-    - build() wraps content in BlocProvider.value + BlocBuilder<HomeCubit,
-      HomeState>, switching on Initial/Loading/Error/Loaded.
-    - _buildGenreSections() no longer owns its own FutureBuilder; it now
-      takes the already-loaded genreMovies map as a parameter.
-    - Layout, banners, section titles, MovieCard rows, Hero tags: all
-      unchanged.
-
-lib/pages/categories_page.dart
-  _CategoriesPageState:
-    - Removed TmdbMovieRepository field and the `Future<List<Movie>>`
-      field.
-    - CategoriesCubit created once in initState() (initial genre load),
-      closed in dispose().
-    - _onSearchChanged / _onGenreSelected now call cubit.search(...) /
-      cubit.loadByGenre(...) instead of reassigning a Future inside
-      setState().
-    - _buildMovieGrid() replaced its FutureBuilder with
-      BlocBuilder<CategoriesCubit, CategoriesState>.
-    - Grid layout, chips, search bar, empty-state copy: all unchanged.
-
-test/movie_detail_cubit_test.dart
-  The fake _FakeTmdbApi test double implements TmdbApi and had to add the
-  3 new interface methods (getTrendingMovies/getMoviesByGenre/
-  searchMovies) to keep compiling as a concrete class.
+- App theming: lib/core/theme/app_theme.dart — defines dark and light
+  ThemeData.
+- Colors and shared styling centralized in lib/core/theme/app_colors.dart.
+- Reusable widgets:
+  - MovieCard (lib/widgets/movie_card.dart): takes an optional `heroTag`;
+    when set, wraps the poster image in a Hero so it can fly into
+    MovieDetailPage's header.
+  - ResponsiveContainer (lib/widgets/responsive_container.dart)
+  - SectionTitle (lib/widgets/section_title.dart)
 
 
-NEW FILES
----------
-lib/cubit/home_state.dart
-  Sealed HomeState (Equatable): HomeInitial, HomeLoading,
-  HomeLoaded(movies, genreMovies), HomeError(message).
-
-lib/cubit/home_cubit.dart
-  HomeCubit(TmdbApi): loadHome() awaits getTrendingMovies() and a
-  per-genre discover loop concurrently (Dart record `.wait`), maps
-  results via toMovie(), emits HomeLoaded or HomeError. Genre list
-  (Action/Comedy/Drama/Romance/Fantasy with TMDB ids) preserved from the
-  original home_page.dart implementation.
-
-lib/cubit/categories_state.dart
-  Sealed CategoriesState (Equatable): CategoriesInitial,
-  CategoriesLoading, CategoriesLoaded(movies), CategoriesError(message).
-
-lib/cubit/categories_cubit.dart
-  CategoriesCubit(TmdbApi): loadByGenre(genreId) and search(query), each
-  emits Loading then Loaded/Error.
+DEPENDENCIES
+-------------
+- provider
+- firebase_core
+- firebase_auth
+- http (legacy TmdbMovieRepository only; unused elsewhere)
+- dio
+- retrofit
+- json_annotation
+- flutter_bloc
+- equatable
+- youtube_player_flutter
+- hive
+- hive_flutter
+- carousel_slider
+- cupertino_icons
+Dev dependencies (codegen): build_runner, retrofit_generator,
+json_serializable.
 
 
-WHAT WAS DELIBERATELY LEFT UNCHANGED
--------------------------------------
-- lib/data/repositories/tmdb_movie_repository.dart (legacy http client) —
-  left in place, no longer used by any page, but still covered by
-  test/tmdb_movie_repository_test.dart. Not deleted since removal wasn't
-  requested.
-- UI layout, colors, spacing, navigation, MovieCard/Hero animations —
-  untouched; only the data-loading mechanism changed.
-- TMDB API endpoints, JSON field names, and the Movie model — unchanged.
-- No global BlocProvider was introduced; each page still creates and
-  owns its Cubit locally (same pattern as the existing MovieDetailPage),
-  avoiding accidental app-wide state or duplicate BLoCs.
+ASSETS
+-------
+- assets/images/ (movie posters, avatar, etc.)
+- assets/fonts/Roboto-Regular.ttf
 
 
 VERIFICATION
-------------
+-------------
 - `flutter analyze`: 0 errors. 3 pre-existing warnings remain (unused
   imports in main.dart / login_page.dart / splash_page.dart), unrelated
-  to this change.
+  to any of the above changes — confirmed still true after the Hive
+  favorites-persistence change.
 - `flutter test`: all tests pass except one pre-existing failure in
   test/widget_test.dart ("app shows the splash screen title"), caused by
   Firebase not being initialized in the test harness. Confirmed via
   `git stash` that this failure exists on the base branch too, i.e. it
-  predates this refactor.
+  predates the BLoC refactor.
 - No FutureBuilder remains anywhere in the API data-fetching path.
 - No duplicate Cubits, API clients, or repositories were introduced.
+- lib/pages/home_page.dart re-analyzed clean after the IndexedStack fix.
 
 
-DATA FLOW (FINAL, for all three screens: Home, Categories, Movie Detail)
---------------------------------------------------------------------------
-  User opens screen
-    -> initState() creates Cubit(TmdbApi(buildTmdbDio())) and calls its
-       load/search method
-    -> Cubit emits Loading
-    -> Cubit awaits TmdbApi (Dio/Retrofit) call(s) against the TMDB REST API
-    -> On success: Cubit maps DTOs to Movie via TmdbMovieMapper, emits
-       Loaded(data)
-    -> On failure: Cubit emits Error(message)
-    -> BlocBuilder<Cubit, State> rebuilds the widget tree for the current
-       state (spinner / error text with retry / real content)
+NOTES
+------
+- The app is primarily a movie browsing/demo app rather than a full
+  streaming service.
+- All movie data comes live from TMDB — the old local dummy dataset
+  (lib/data/fake_movies.dart, ids '1'-'6') has been removed. Every screen
+  (Home, Categories, Favorites, Movie Detail) works off real TMDB ids and
+  Movie objects passed via navigation arguments; app_router.dart's
+  dynamic /movie/:id and /watch/:id routes no longer have a fake-data
+  fallback for that reason.
+- User authentication requires Firebase configuration to work properly.
+- No `language` query parameter is sent to TMDB anywhere in the app
+  (removed from TmdbApi and TmdbMovieRepository). It previously
+  hardcoded 'vi-VN', but TMDB's /movie/{id}/videos endpoint filters
+  strictly to that exact language tag with no fallback — most movies have
+  no Vietnamese-tagged trailer, so the trailer button was empty for
+  nearly everything except titles with official VN marketing (e.g.
+  "The Odyssey"). Removed everywhere, not just videos, to keep API
+  behavior consistent across detail/credits/videos/similar/discover/
+  search.
+- Hero poster tags on the Home tab are namespaced per row, not just per
+  movie id (see HomePage._buildMovieRow's `sectionKey` param, e.g.
+  'poster-trending-${movie.id}' vs 'poster-genre-Action-${movie.id}').
+  TMDB's "popular" and per-genre discover results frequently overlap (the
+  same blockbuster shows up in Trending AND a genre row), and Flutter
+  hard-crashes if two Hero widgets share a tag while mounted on the same
+  route simultaneously. The tag is generated at the tap site and passed
+  straight through to the pushed MovieDetailPage's `heroTag`, so
+  source/destination always match per-tap while staying unique across
+  rows. FavoritesPage/CategoriesPage don't use MovieCard, so they get
+  MovieDetailPage's default 'poster-${movie.id}' tag with no Hero
+  animation (harmless, just no flight).

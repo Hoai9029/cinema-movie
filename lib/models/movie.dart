@@ -18,4 +18,26 @@ class Movie {
     required this.overview,
     required this.genre,
   });
+
+  // Chỉ gồm các kiểu nguyên thuỷ (String/double) nên Hive lưu/đọc
+  // trực tiếp được mà không cần đăng ký TypeAdapter riêng.
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'poster': poster,
+    'duration': duration,
+    'rating': rating,
+    'overview': overview,
+    'genre': genre,
+  };
+
+  factory Movie.fromJson(Map<String, dynamic> json) => Movie(
+    id: json['id'] as String,
+    title: json['title'] as String,
+    poster: json['poster'] as String,
+    duration: json['duration'] as String,
+    rating: (json['rating'] as num).toDouble(),
+    overview: json['overview'] as String,
+    genre: json['genre'] as String,
+  );
 }

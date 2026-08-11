@@ -10,6 +10,7 @@ import '../data/api/tmdb_dio_client.dart';
 import '../data/watchlist_state.dart';
 import '../models/movie.dart';
 import '../routes/app_router.dart';
+import '../widgets/favorite_toast.dart';
 import 'trailer_player_page.dart';
 
 class MovieDetailPage extends StatelessWidget {
@@ -140,7 +141,7 @@ class _MovieDetailView extends StatelessWidget {
             child: _CircleIconButton(
               icon: isFavorite ? Icons.favorite : Icons.favorite_border,
               iconColor: isFavorite ? AppColors.primary : Colors.white,
-              onTap: () => watchlist.toggleFavorite(movie),
+              onTap: () => handleFavoriteToggle(context, watchlist, movie),
             ),
           ),
           if (state is MovieDetailLoaded && state.bundle.trailerVideo != null)
