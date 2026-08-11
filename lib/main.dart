@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'data/theme_mode_state.dart';
@@ -14,6 +15,8 @@ import 'routes/app_router.dart';
 // thích...) đều đọc/ghi được cùng một dữ liệu yêu thích.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Hive.initFlutter();
 
   try {
     await Firebase.initializeApp(

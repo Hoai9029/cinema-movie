@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/theme/app_colors.dart';
+import '../data/auth/firebase_auth_repository.dart';
 import '../data/theme_mode_state.dart';
+import '../routes/app_router.dart';
 import '../widgets/responsive_container.dart';
 
 // ============================================================
@@ -10,6 +12,14 @@ import '../widgets/responsive_container.dart';
 // ============================================================
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
+
+  Future<void> _handleLogout(BuildContext context) async {
+    await FirebaseAuthRepository().signOut();
+    if (!context.mounted) return;
+    Navigator.of(
+      context,
+    ).pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -143,6 +153,29 @@ class ProfilePage extends StatelessWidget {
 
                   const _ConceptCheck('--'),
                 ],
+              ),
+            ),
+            const SizedBox(height: 28),
+
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _handleLogout(context),
+                icon: const Icon(Icons.logout, color: AppColors.primary),
+                label: const Text(
+                  'Đăng xuất',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: const BorderSide(color: AppColors.primary),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
               ),
             ),
           ],

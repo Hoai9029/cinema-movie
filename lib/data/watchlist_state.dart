@@ -1,4 +1,8 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 
 import '../models/movie.dart';
 
@@ -15,8 +19,26 @@ import '../models/movie.dart';
 // Lưu cả Movie (không chỉ id) vì dữ liệu phim đến từ TMDB — trang
 // Yêu thích cần đủ thông tin (poster, tiêu đề, ...) để hiển thị mà
 // không phải gọi lại API hay tra cứu trong danh sách phim mẫu.
+//
+// LƯU TRỮ: dùng Hive (local, đồng bộ, không cần chờ mạng). Mỗi
+// tài khoản có một box riêng tên "favorites_<uid>" để dữ liệu
+// không bị lẫn khi nhiều người dùng chung một máy/thiết bị. State
+// tự lắng nghe authStateChanges của Firebase để mở box đúng người
+// dùng khi đăng nhập, và đóng box + xoá dữ liệu trong RAM khi
+// đăng xuất hoặc đổi tài khoản.
 // ============================================================
 class WatchlistState extends ChangeNotifier {
+  WatchlistState({firebase_auth.FirebaseAuth? firebaseAuth})
+    : _firebaseAuth = firebaseAuth ?? firebase_auth.FirebaseAuth.instance {
+    _authSubscription = _firebaseAuth.authStateChanges().listen(
+      _onAuthChanged,
+    );
+  }
+
+  final firebase_auth.FirebaseAuth _firebaseAuth;
+  late final StreamSubscription<firebase_auth.User?> _authSubscription;
+
+  Box? _box;
   final Map<String, Movie> _favorites = {};
 
   // Chặn double-toggle khi người dùng bấm tim liên tiếp quá nhanh (vd
@@ -29,6 +51,35 @@ class WatchlistState extends ChangeNotifier {
   bool isFavorite(String movieId) => _favorites.containsKey(movieId);
 
   List<Movie> get favoriteMovies => _favorites.values.toList();
+
+  static String _boxNameFor(String uid) => 'favorites_$uid';
+
+  // Chạy mỗi khi trạng thái đăng nhập Firebase thay đổi: đăng nhập,
+  // đăng xuất, hoặc đổi sang tài khoản khác trên cùng thiết bị.
+  Future<void> _onAuthChanged(firebase_auth.User? user) async {
+    // Luôn đóng box cũ + xoá sạch bộ nhớ RAM trước, để không bao giờ
+    // hiển thị nhầm dữ liệu của người dùng trước đó.
+    await _closeBox();
+    _favorites.clear();
+
+    if (user != null) {
+      _box = await Hive.openBox(_boxNameFor(user.uid));
+      for (final raw in _box!.values) {
+        final movie = Movie.fromJson(Map<String, dynamic>.from(raw as Map));
+        _favorites[movie.id] = movie;
+      }
+    }
+
+    notifyListeners();
+  }
+
+  Future<void> _closeBox() async {
+    final box = _box;
+    _box = null;
+    if (box != null && box.isOpen) {
+      await box.close();
+    }
+  }
 
   // Trả về true nếu phim VỪA được thêm vào yêu thích, false nếu VỪA bị
   // xoá, hoặc null nếu lần bấm này bị bỏ qua vì đến quá nhanh sau lần
@@ -46,11 +97,22 @@ class WatchlistState extends ChangeNotifier {
     if (_favorites.containsKey(movie.id)) {
       _favorites.remove(movie.id);
       isNowFavorite = false;
+      // Không await: Hive ghi xuống đĩa ở background, không cần chờ
+      // mạng nên UI vẫn cập nhật tức thì.
+      _box?.delete(movie.id);
     } else {
       _favorites[movie.id] = movie;
       isNowFavorite = true;
+      _box?.put(movie.id, movie.toJson());
     }
     notifyListeners();
     return isNowFavorite;
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    _box?.close();
+    super.dispose();
   }
 }

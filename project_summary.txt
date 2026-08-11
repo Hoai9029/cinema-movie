@@ -1,6 +1,6 @@
 CINEMA_MOVIE (CineStream) — PROJECT SUMMARY
 =============================================
-Last updated: 2026-08-10
+Last updated: 2026-08-11
 (Merged from the former "Project Summary.txt" + "project_summary.txt";
 this is now the single source of truth for both the app overview and the
 BLoC refactor history.)
@@ -11,6 +11,8 @@ OVERVIEW
 - CineStream is a Flutter movie streaming/demo application.
 - Uses Firebase Authentication for email/password login and Provider for
   simple app-wide state (favorites, theme).
+- Favorites persist locally per-user via Hive (see FAVORITES PERSISTENCE
+  below) — no server-side storage for the like/favorite feature.
 - All movie data (Home, Categories, Movie Detail) is fetched live from
   TMDB through Dio/Retrofit + flutter_bloc Cubits — see STATE MANAGEMENT
   below for how that came to be and why.
@@ -23,6 +25,8 @@ CORE ARCHITECTURE
 -----------------
 Entry point: lib/main.dart
   - Initializes Firebase using firebase_options.dart.
+  - Calls `await Hive.initFlutter()` before runApp so WatchlistState can
+    open per-user Hive boxes (see FAVORITES PERSISTENCE below).
   - Sets up MultiProvider with WatchlistState and ThemeModeState.
   - Launches the app with MaterialApp and dynamic theme selection.
 
@@ -104,6 +108,9 @@ DATA AND SERVICES
 Movie model: lib/models/movie.dart
   - Defines movie properties: id, title, poster, duration, rating,
     overview, genre.
+  - toJson()/fromJson() added for Hive persistence (see FAVORITES
+    PERSISTENCE below); all fields are primitives (String/double) so no
+    Hive TypeAdapter/codegen is needed — the Map is stored as-is.
 
 TMDB Retrofit API: lib/data/api/tmdb_api.dart (+ generated tmdb_api.g.dart)
   - Dio/Retrofit client, now the ONLY TMDB entry point used by the app.
@@ -142,7 +149,8 @@ App state (Provider / ChangeNotifier):
   - WatchlistState (lib/data/watchlist_state.dart): manages favorite
     movies, keyed by id but storing the full Movie object (poster/title/
     etc. come from TMDB, so the favorites screen needs more than just an
-    id to render).
+    id to render). Backed by a per-user Hive box — see FAVORITES
+    PERSISTENCE below.
   - ThemeModeState (lib/data/theme_mode_state.dart): manages light/dark
     theme state.
 
@@ -265,6 +273,52 @@ scroll position, selected genre chip, and search text intact because the
 underlying widgets are never torn down.
 
 
+FAVORITES PERSISTENCE (Hive, per-user)
+------------------------------------------
+Background: favorites previously lived only in WatchlistState's in-memory
+Map — lost on app restart and not scoped to any account, so switching
+users on the same device would leak/mix favorites. Replaced with Hive
+local storage, boxed per Firebase uid, with no server round-trip.
+
+Design:
+  - Box name: `favorites_<uid>` (lib/data/watchlist_state.dart,
+    `_boxNameFor`). One box per Firebase user; never a single shared box
+    (see rationale below).
+  - WatchlistState subscribes to FirebaseAuth.authStateChanges() itself
+    in its constructor (no external wiring needed in main.dart/pages)
+    and reacts on every login/logout/account-switch event:
+      1. Close the previously open box (if any) and clear the in-memory
+         `_favorites` map — guarantees no stale uid's data lingers in
+         RAM across the transition.
+      2. If a user is now signed in, open `favorites_<uid>` and load
+         every stored entry into `_favorites` via Movie.fromJson.
+      3. notifyListeners() so FavoritesPage/MovieDetailPage repaint.
+  - toggleFavorite() still returns synchronously (debounce logic
+    unchanged) — box.put()/box.delete() are fired without `await`,
+    since Hive writes are local and don't need to block the UI on I/O.
+  - dispose() cancels the auth subscription and closes the box.
+
+Why box-per-uid instead of one shared box: keying everything by
+movie.id in a single box means two different users liking the same
+movie id collide on the same key — last write wins, and neither user
+sees a correct list. Per-uid boxes give each account an isolated
+keyspace for free and make logout trivial (close the box, nothing to
+filter by uid).
+
+Why boxes are closed but not deleted on sign-out: plain sign-out keeps
+the box on disk so the same user gets their favorites back on next
+login on that device. Only an explicit "delete my account" flow should
+call Hive.deleteBoxFromDisk('favorites_<uid>') — normal sign-out
+destroying local data would be an unexpected data loss for the user.
+
+Files touched: pubspec.yaml (added hive, hive_flutter); lib/main.dart
+(Hive.initFlutter() before runApp); lib/models/movie.dart (toJson/
+fromJson); lib/data/watchlist_state.dart (rewritten as described above).
+No changes needed in FavoritesPage, MovieDetailPage, or the toast/toggle
+UI — WatchlistState's public API (isFavorite/favoriteMovies/
+toggleFavorite) is unchanged.
+
+
 THEME AND UI
 -------------
 - App theming: lib/core/theme/app_theme.dart — defines dark and light
@@ -290,6 +344,8 @@ DEPENDENCIES
 - flutter_bloc
 - equatable
 - youtube_player_flutter
+- hive
+- hive_flutter
 - cupertino_icons
 Dev dependencies (codegen): build_runner, retrofit_generator,
 json_serializable.
@@ -305,7 +361,8 @@ VERIFICATION
 -------------
 - `flutter analyze`: 0 errors. 3 pre-existing warnings remain (unused
   imports in main.dart / login_page.dart / splash_page.dart), unrelated
-  to any of the above changes.
+  to any of the above changes — confirmed still true after the Hive
+  favorites-persistence change.
 - `flutter test`: all tests pass except one pre-existing failure in
   test/widget_test.dart ("app shows the splash screen title"), caused by
   Firebase not being initialized in the test harness. Confirmed via
