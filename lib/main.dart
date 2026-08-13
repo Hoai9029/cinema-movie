@@ -6,7 +6,6 @@ import 'core/theme/app_theme.dart';
 import 'data/theme_mode_state.dart';
 import 'data/watchlist_state.dart';
 import 'firebase_options.dart';
-import 'pages/splash_page.dart';
 import 'routes/app_router.dart';
 
 // Điểm bắt đầu của ứng dụng Flutter.
