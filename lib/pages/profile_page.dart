@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/theme/theme_bloc.dart';
@@ -7,15 +8,28 @@ import '../data/auth/firebase_auth_repository.dart';
 import '../routes/app_router.dart';
 import '../widgets/responsive_container.dart';
 
-// ============================================================
-// StatelessWidget: trang hồ sơ chỉ hiển thị dữ liệu tĩnh (thông
-// tin cá nhân giả, lịch sử xem giả) nên không cần state riêng.
-// ============================================================
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final _repository = FirebaseAuthRepository();
+  late final Future<Map<String, dynamic>?> _profileFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final uid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+    _profileFuture = uid == null
+        ? Future.value(null)
+        : _repository.getUserProfile(uid);
+  }
+
   Future<void> _handleLogout(BuildContext context) async {
-    await FirebaseAuthRepository().signOut();
+    await _repository.signOut();
     if (!context.mounted) return;
     Navigator.of(
       context,
@@ -25,6 +39,7 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeState = context.watch<ThemeBloc>().state;
+    final currentUser = firebase_auth.FirebaseAuth.instance.currentUser;
 
     return ResponsiveContainer(
       maxWidth: 700,
@@ -33,33 +48,60 @@ class ProfilePage extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            // Column: avatar + tên + email canh giữa theo chiều dọc.
+            // Column: avatar + tên + SĐT + email canh giữa theo chiều dọc.
             Center(
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 48,
-                    backgroundColor: AppColors.primary,
-                    child: Icon(Icons.person, size: 48, color: Colors.white),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Nguyễn Văn A',
-                    style: TextStyle(
-                      color: AppColors.textOf(context),
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 6),
-                  Text(
-                    'nguyenvana@email.com',
-                    style: TextStyle(
-                      color: AppColors.textFadedOf(context),
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
+              child: FutureBuilder<Map<String, dynamic>?>(
+                future: _profileFuture,
+                builder: (context, snapshot) {
+                  final profile = snapshot.data;
+                  final name =
+                      profile?['name'] as String? ??
+                      currentUser?.displayName ??
+                      'Người dùng';
+                  final phone = profile?['phone'] as String?;
+                  final email = currentUser?.email ?? '';
+
+                  return Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 48,
+                        backgroundColor: AppColors.primary,
+                        child: Icon(
+                          Icons.person,
+                          size: 48,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        name,
+                        style: TextStyle(
+                          color: AppColors.textOf(context),
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        email,
+                        style: TextStyle(
+                          color: AppColors.textFadedOf(context),
+                          fontSize: 14,
+                        ),
+                      ),
+                      if (phone != null && phone.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          phone,
+                          style: TextStyle(
+                            color: AppColors.textFadedOf(context),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
               ),
             ),
             const SizedBox(height: 28),
