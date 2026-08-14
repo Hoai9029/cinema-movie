@@ -5,7 +5,6 @@ import '../pages/splash_page.dart';
 import '../pages/login_page.dart';
 import '../pages/home_page.dart';
 import '../pages/movie_detail_page.dart';
-import '../pages/watch_page.dart';
 import '../pages/edit_profile_page.dart';
 import '../models/movie.dart';
 
@@ -14,7 +13,6 @@ class AppRoutes {
   static const login = '/login';
   static const home = '/home';
   static const movie = '/movie'; // dynamic: /movie/:id
-  static const watch = '/watch'; // dynamic: /watch/:id
   static const editProfile = '/edit-profile';
 }
 
@@ -52,22 +50,9 @@ class AppRouter {
       return _unknownRoute('Movie not found: $id');
     }
 
-    // Dynamic watch route: /watch/:id
-    if (name.startsWith('${AppRoutes.watch}/')) {
-      final id = name.split('/').last;
-      if (args is Movie) {
-        return MaterialPageRoute(builder: (_) => WatchPage(movie: args));
-      }
-      return _unknownRoute('Movie not found: $id');
-    }
-
-    // Allow calling /movie or /watch with Movie argument
+    // Allow calling /movie with Movie argument
     if (name == AppRoutes.movie && args is Movie) {
       return MaterialPageRoute(builder: (_) => MovieDetailPage(movie: args));
-    }
-
-    if (name == AppRoutes.watch && args is Movie) {
-      return MaterialPageRoute(builder: (_) => WatchPage(movie: args));
     }
 
     return _unknownRoute('Unknown route: $name');
