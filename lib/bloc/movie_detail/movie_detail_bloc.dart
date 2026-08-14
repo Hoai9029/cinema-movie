@@ -1,25 +1,29 @@
-import 'dart:async';
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../data/api/tmdb_api.dart';
-import '../data/models/tmdb_movie_response.dart';
+import '../../data/api/tmdb_api.dart';
+import '../../data/models/tmdb_movie_response.dart';
 import 'movie_detail_bundle.dart';
+import 'movie_detail_event.dart';
 import 'movie_detail_state.dart';
 
-class MovieDetailCubit extends Cubit<MovieDetailState> {
-  MovieDetailCubit(this._api) : super(const MovieDetailInitial());
+class MovieDetailBloc extends Bloc<MovieDetailEvent, MovieDetailState> {
+  MovieDetailBloc(this._api) : super(const MovieDetailInitial()) {
+    on<MovieDetailRequested>(_onRequested);
+  }
 
   final TmdbApi _api;
 
-  Future<void> loadMovieDetail(int movieId) async {
+  Future<void> _onRequested(
+    MovieDetailRequested event,
+    Emitter<MovieDetailState> emit,
+  ) async {
     emit(const MovieDetailLoading());
     try {
       final (detail, credits, videos, similar) = await (
-        _api.getMovieDetail(movieId),
-        _api.getCredits(movieId),
-        _api.getVideos(movieId),
-        _api.getSimilarMovies(movieId),
+        _api.getMovieDetail(event.movieId),
+        _api.getCredits(event.movieId),
+        _api.getVideos(event.movieId),
+        _api.getSimilarMovies(event.movieId),
       ).wait;
 
       final similarMovies = similar.results.map((m) => m.toMovie()).toList();

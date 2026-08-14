@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/watchlist/watchlist_bloc.dart';
+import '../bloc/watchlist/watchlist_event.dart';
 import '../core/theme/app_colors.dart';
-import '../data/watchlist_state.dart';
 import '../widgets/favorite_toast.dart';
 import '../widgets/responsive_container.dart';
 import '../routes/app_router.dart';
 
 // ============================================================
 // KHÁI NIỆM: LAYOUT — LISTVIEW (dọc) + STATE ĐƯỢC CHIA SẺ
-// Trang này đọc danh sách phim yêu thích từ WatchlistState bằng
+// Trang này đọc danh sách phim yêu thích từ WatchlistBloc bằng
 // `context.watch`. Vì watch(), mỗi khi có phim được thêm/bỏ ở
 // màn Chi tiết phim, danh sách ở ĐÂY tự cập nhật theo — không
 // cần Navigator.push chờ kết quả trả về hay gọi lại API gì cả.
@@ -18,7 +19,16 @@ class FavoritesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final watchlist = context.watch<WatchlistState>();
+    return const FavoriteToastListener(child: _FavoritesList());
+  }
+}
+
+class _FavoritesList extends StatelessWidget {
+  const _FavoritesList();
+
+  @override
+  Widget build(BuildContext context) {
+    final watchlist = context.watch<WatchlistBloc>().state;
     final favoriteMovies = watchlist.favoriteMovies;
 
     if (favoriteMovies.isEmpty) {
@@ -117,8 +127,9 @@ class FavoritesPage extends StatelessWidget {
                         Icons.favorite,
                         color: AppColors.primary,
                       ),
-                      onPressed: () =>
-                          handleFavoriteToggle(context, watchlist, movie),
+                      onPressed: () => context.read<WatchlistBloc>().add(
+                        WatchlistToggled(movie),
+                      ),
                     ),
                   ],
                 ),

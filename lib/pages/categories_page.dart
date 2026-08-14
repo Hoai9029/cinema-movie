@@ -1,11 +1,10 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+import '../bloc/categories/categories_bloc.dart';
+import '../bloc/categories/categories_event.dart';
+import '../bloc/categories/categories_state.dart';
 import '../core/theme/app_colors.dart';
-import '../cubit/categories_cubit.dart';
-import '../cubit/categories_state.dart';
 import '../data/api/tmdb_api.dart';
 import '../data/api/tmdb_dio_client.dart';
 import '../models/movie.dart';
@@ -27,9 +26,8 @@ class CategoriesPage extends StatefulWidget {
 }
 
 class _CategoriesPageState extends State<CategoriesPage> {
-  late final CategoriesCubit _cubit;
+  late final CategoriesBloc _bloc;
   final TextEditingController _searchController = TextEditingController();
-  Timer? _debounce;
 
   // Thể loại hiển thị dạng chip, kèm id thể loại chuẩn của TMDB.
   static const Map<String, int> _genres = {
@@ -58,43 +56,34 @@ class _CategoriesPageState extends State<CategoriesPage> {
     ),
   );
 
-  // Tải lại đúng dữ liệu đang hiển thị (theo từ khoá tìm kiếm nếu có,
-  // ngược lại theo thể loại đang chọn) — dùng chung cho pull-to-refresh.
-  Future<void> _refresh() {
-    return _query.isEmpty
-        ? _cubit.loadByGenre(_genres[_selectedGenre ?? _genres.keys.first]!)
-        : _cubit.search(_query);
-  }
-
   @override
   void initState() {
     super.initState();
     _selectedGenre = _genres.keys.first;
-    // API data không còn được gọi trực tiếp trong widget: CategoriesCubit
+    // API data không còn được gọi trực tiếp trong widget: CategoriesBloc
     // chịu trách nhiệm gọi TmdbApi (Dio/Retrofit) và phát ra state.
-    _cubit = CategoriesCubit(TmdbApi(buildTmdbDio()))
-      ..loadByGenre(_genres[_selectedGenre]!);
+    // Debounce cho ô tìm kiếm cũng nằm trong CategoriesBloc (transformer
+    // trên CategoriesSearchChanged), không còn Timer thủ công ở đây.
+    _bloc = CategoriesBloc(
+      TmdbApi(buildTmdbDio()),
+      initialGenreId: _genres[_selectedGenre]!,
+    )..add(CategoriesGenreSelected(_genres[_selectedGenre]!));
   }
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _searchController.dispose();
-    _cubit.close();
+    _bloc.close();
     super.dispose();
   }
 
   void _onSearchChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 400), () {
-      setState(() => _query = value.trim());
-      if (_query.isEmpty) {
-        _cubit.loadByGenre(_genres[_selectedGenre]!);
-      } else {
-        setState(() => _selectedGenre = null);
-        _cubit.search(_query);
-      }
+    final query = value.trim();
+    setState(() {
+      _query = query;
+      if (query.isNotEmpty) _selectedGenre = null;
     });
+    _bloc.add(CategoriesSearchChanged(value));
   }
 
   void _onGenreSelected(String genre) {
@@ -103,13 +92,13 @@ class _CategoriesPageState extends State<CategoriesPage> {
       _query = '';
       _searchController.clear();
     });
-    _cubit.loadByGenre(_genres[genre]!);
+    _bloc.add(CategoriesGenreSelected(_genres[genre]!));
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
-      value: _cubit,
+      value: _bloc,
       child: ResponsiveContainer(
         maxWidth: 1100,
         child: Padding(
@@ -184,13 +173,13 @@ class _CategoriesPageState extends State<CategoriesPage> {
   }
 
   Widget _buildMovieGrid(BuildContext context) {
-    return BlocBuilder<CategoriesCubit, CategoriesState>(
+    return BlocBuilder<CategoriesBloc, CategoriesState>(
       builder: (context, state) {
         // RefreshIndicator bọc NGOÀI mọi state (kể cả lỗi/rỗng) để
-        // luôn kéo-để-tải-lại được. onRefresh gọi lại đúng hàm cubit
-        // đang dùng (loadByGenre hoặc search) qua _refresh().
+        // luôn kéo-để-tải-lại được. onRefresh gọi CategoriesBloc.refresh()
+        // — Bloc tự nhớ truy vấn (search hoặc genre) đang active.
         return RefreshIndicator(
-          onRefresh: _refresh,
+          onRefresh: _bloc.refresh,
           child: switch (state) {
             CategoriesInitial() || CategoriesLoading() => Skeletonizer(
               enabled: true,

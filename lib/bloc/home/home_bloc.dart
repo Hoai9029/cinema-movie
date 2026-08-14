@@ -1,12 +1,15 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../data/api/tmdb_api.dart';
-import '../data/models/tmdb_movie_response.dart';
-import '../models/movie.dart';
+import '../../data/api/tmdb_api.dart';
+import '../../data/models/tmdb_movie_response.dart';
+import '../../models/movie.dart';
+import 'home_event.dart';
 import 'home_state.dart';
 
-class HomeCubit extends Cubit<HomeState> {
-  HomeCubit(this._api) : super(const HomeInitial());
+class HomeBloc extends Bloc<HomeEvent, HomeState> {
+  HomeBloc(this._api) : super(const HomeInitial()) {
+    on<HomeRequested>(_onRequested);
+  }
 
   final TmdbApi _api;
 
@@ -20,7 +23,10 @@ class HomeCubit extends Cubit<HomeState> {
     14: 'Viễn tưởng', // Fantasy
   };
 
-  Future<void> loadHome() async {
+  Future<void> _onRequested(
+    HomeRequested event,
+    Emitter<HomeState> emit,
+  ) async {
     emit(const HomeLoading());
     try {
       final (trending, genreMovies) = await (
@@ -56,5 +62,16 @@ class HomeCubit extends Cubit<HomeState> {
     }
 
     return result;
+  }
+
+  // Cầu nối cho RefreshIndicator: onRefresh cần 1 Future<void> hoàn
+  // thành đúng lúc dữ liệu tải xong (không phải lúc add() được gọi)
+  // để spinner hiển thị đúng thời gian chờ — add() một mình không trả
+  // Future, nên chờ state kế tiếp không còn Loading.
+  Future<void> refresh() {
+    add(const HomeRequested());
+    return stream.firstWhere(
+      (state) => state is HomeLoaded || state is HomeError,
+    );
   }
 }

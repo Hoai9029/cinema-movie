@@ -1,5 +1,5 @@
-import '../data/models/tmdb_movie_detail_response.dart';
-import '../models/movie.dart';
+import '../../data/models/tmdb_movie_detail_response.dart';
+import '../../models/movie.dart';
 
 class MovieDetailBundle {
   const MovieDetailBundle({
