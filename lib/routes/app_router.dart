@@ -6,6 +6,7 @@ import '../pages/login_page.dart';
 import '../pages/home_page.dart';
 import '../pages/movie_detail_page.dart';
 import '../pages/watch_page.dart';
+import '../pages/edit_profile_page.dart';
 import '../models/movie.dart';
 
 class AppRoutes {
@@ -14,6 +15,7 @@ class AppRoutes {
   static const home = '/home';
   static const movie = '/movie'; // dynamic: /movie/:id
   static const watch = '/watch'; // dynamic: /watch/:id
+  static const editProfile = '/edit-profile';
 }
 
 class AppRouter {
@@ -34,6 +36,11 @@ class AppRouter {
     if (name == AppRoutes.home) {
       if (!isAuth) return MaterialPageRoute(builder: (_) => const LoginPage());
       return MaterialPageRoute(builder: (_) => const HomePage());
+    }
+
+    if (name == AppRoutes.editProfile) {
+      if (!isAuth) return MaterialPageRoute(builder: (_) => const LoginPage());
+      return MaterialPageRoute(builder: (_) => const EditProfilePage());
     }
 
     // Dynamic movie route: /movie/:id

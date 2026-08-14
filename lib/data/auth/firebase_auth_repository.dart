@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
+import '../../core/constants/app_avatars.dart';
+
 class FirebaseAuthRepository {
   FirebaseAuthRepository({
     firebase_auth.FirebaseAuth? firebaseAuth,
@@ -38,6 +40,7 @@ class FirebaseAuthRepository {
       'name': name,
       'phone': phone,
       'email': email,
+      'avatarId': AppAvatars.defaultId,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -45,6 +48,18 @@ class FirebaseAuthRepository {
   Future<Map<String, dynamic>?> getUserProfile(String uid) async {
     final snapshot = await _firestore.collection('users').doc(uid).get();
     return snapshot.data();
+  }
+
+  Future<void> updateProfile(
+    String uid, {
+    required String name,
+    required int avatarId,
+  }) async {
+    await _firestore.collection('users').doc(uid).update({
+      'name': name,
+      'avatarId': avatarId,
+    });
+    await _firebaseAuth.currentUser?.updateDisplayName(name);
   }
 
   Future<void> signOut() async {
