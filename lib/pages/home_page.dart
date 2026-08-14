@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+import '../bloc/home/home_bloc.dart';
+import '../bloc/home/home_event.dart';
+import '../bloc/home/home_state.dart';
 import '../core/theme/app_colors.dart';
-import '../cubit/home_cubit.dart';
-import '../cubit/home_state.dart';
 import '../data/api/tmdb_api.dart';
 import '../data/api/tmdb_dio_client.dart';
 import '../models/movie.dart';
@@ -125,7 +126,7 @@ class _HomeTabContent extends StatefulWidget {
 }
 
 class _HomeTabContentState extends State<_HomeTabContent> {
-  late final HomeCubit _cubit;
+  late final HomeBloc _bloc;
 
   // Chỉ số banner đang hiển thị, dùng để tô đậm dot indicator.
   // CarouselSlider tự quản lý việc scroll/auto-play; ta chỉ cần lắng
@@ -150,7 +151,7 @@ class _HomeTabContentState extends State<_HomeTabContent> {
   );
 
   static final Map<String, List<Movie>> _fakeGenreMovies = {
-    for (final entry in HomeCubit.genresToShow.entries)
+    for (final entry in HomeBloc.genresToShow.entries)
       entry.value: List.generate(
         4,
         (i) => Movie(
@@ -168,31 +169,32 @@ class _HomeTabContentState extends State<_HomeTabContent> {
   @override
   void initState() {
     super.initState();
-    // API data không còn được gọi trực tiếp trong widget: HomeCubit
+    // API data không còn được gọi trực tiếp trong widget: HomeBloc
     // chịu trách nhiệm gọi TmdbApi (Dio/Retrofit) và phát ra state.
-    _cubit = HomeCubit(TmdbApi(buildTmdbDio()))..loadHome();
+    _bloc = HomeBloc(TmdbApi(buildTmdbDio()))..add(const HomeRequested());
   }
 
   @override
   void dispose() {
-    _cubit.close();
+    _bloc.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
-      value: _cubit,
+      value: _bloc,
       child: ResponsiveContainer(
         maxWidth: 1000,
-        child: BlocBuilder<HomeCubit, HomeState>(
+        child: BlocBuilder<HomeBloc, HomeState>(
           builder: (context, state) {
             // RefreshIndicator bọc NGOÀI mọi state (kể cả lỗi) để
             // người dùng luôn có thể kéo-để-tải-lại, không chỉ khi
-            // đã có dữ liệu. onRefresh gọi lại đúng hàm loadHome()
-            // cũ trong HomeCubit — không viết logic fetch riêng.
+            // đã có dữ liệu. onRefresh gọi HomeBloc.refresh() — add()
+            // event rồi chờ tới khi state không còn Loading, để
+            // spinner hiển thị đúng thời gian chờ dữ liệu.
             return RefreshIndicator(
-              onRefresh: _cubit.loadHome,
+              onRefresh: _bloc.refresh,
               child: switch (state) {
                 HomeInitial() || HomeLoading() => Skeletonizer(
                   enabled: true,

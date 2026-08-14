@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/theme/theme_bloc.dart';
+import '../bloc/theme/theme_event.dart';
 import '../core/theme/app_colors.dart';
 import '../data/auth/firebase_auth_repository.dart';
-import '../data/theme_mode_state.dart';
 import '../routes/app_router.dart';
 import '../widgets/responsive_container.dart';
 
@@ -23,7 +24,7 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeState = context.watch<ThemeModeState>();
+    final themeState = context.watch<ThemeBloc>().state;
 
     return ResponsiveContainer(
       maxWidth: 700,
@@ -83,7 +84,8 @@ class ProfilePage extends StatelessWidget {
                   Switch(
                     value: themeState.isDark,
                     activeThumbColor: AppColors.primary,
-                    onChanged: (value) => themeState.toggleTheme(value),
+                    onChanged: (value) =>
+                        context.read<ThemeBloc>().add(ThemeToggled(value)),
                   ),
                 ],
               ),

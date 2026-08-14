@@ -1,17 +1,17 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:provider/provider.dart';
+import 'bloc/theme/theme_bloc.dart';
+import 'bloc/watchlist/watchlist_bloc.dart';
 import 'core/theme/app_theme.dart';
-import 'data/theme_mode_state.dart';
-import 'data/watchlist_state.dart';
 import 'firebase_options.dart';
 import 'routes/app_router.dart';
 
 // Điểm bắt đầu của ứng dụng Flutter.
-// ChangeNotifierProvider tạo WatchlistState MỘT LẦN ở gốc cây
-// widget, để mọi màn hình con (Trang chủ, Chi tiết phim, Yêu
-// thích...) đều đọc/ghi được cùng một dữ liệu yêu thích.
+// MultiBlocProvider tạo WatchlistBloc và ThemeBloc MỘT LẦN ở gốc
+// cây widget, để mọi màn hình con (Trang chủ, Chi tiết phim, Yêu
+// thích...) đều đọc/ghi được cùng một dữ liệu.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -26,10 +26,10 @@ Future<void> main() async {
   }
 
   runApp(
-    MultiProvider(
+    MultiBlocProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => WatchlistState()),
-        ChangeNotifierProvider(create: (_) => ThemeModeState()),
+        BlocProvider(create: (_) => WatchlistBloc()),
+        BlocProvider(create: (_) => ThemeBloc()),
       ],
       child: const MyApp(),
     ),
@@ -49,12 +49,12 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeState = context.watch<ThemeModeState>();
+    final isDark = context.watch<ThemeBloc>().state.isDark;
 
     return MaterialApp(
       title: 'CineStream',
       debugShowCheckedModeBanner: false,
-      theme: themeState.isDark ? AppTheme.dark : AppTheme.light,
+      theme: isDark ? AppTheme.dark : AppTheme.light,
       initialRoute: AppRoutes.splash,
       onGenerateRoute: AppRouter.generateRoute,
     );

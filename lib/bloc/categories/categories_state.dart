@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-import '../models/movie.dart';
+import '../../models/movie.dart';
 
 sealed class CategoriesState extends Equatable {
   const CategoriesState();

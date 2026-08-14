@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-import '../models/movie.dart';
+import '../../models/movie.dart';
 
 sealed class HomeState extends Equatable {
   const HomeState();

@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
-import 'package:cinema_movie/data/theme_mode_state.dart';
+import 'package:cinema_movie/bloc/theme/theme_bloc.dart';
+import 'package:cinema_movie/bloc/watchlist/watchlist_bloc.dart';
 import 'package:cinema_movie/main.dart';
 import 'package:cinema_movie/pages/profile_page.dart';
 
 void main() {
   testWidgets('app shows the splash screen title', (WidgetTester tester) async {
     await tester.pumpWidget(
-      MultiProvider(
-        providers: [ChangeNotifierProvider(create: (_) => ThemeModeState())],
+      MultiBlocProvider(
+        providers: [
+          BlocProvider(create: (_) => ThemeBloc()),
+          BlocProvider(create: (_) => WatchlistBloc()),
+        ],
         child: const MyApp(),
       ),
     );
@@ -26,21 +30,22 @@ void main() {
   testWidgets('profile page contains a dark mode switch', (
     WidgetTester tester,
   ) async {
-    final themeState = ThemeModeState();
+    final themeBloc = ThemeBloc();
+    addTearDown(themeBloc.close);
 
     await tester.pumpWidget(
-      ChangeNotifierProvider<ThemeModeState>.value(
-        value: themeState,
+      BlocProvider<ThemeBloc>.value(
+        value: themeBloc,
         child: const MaterialApp(home: ProfilePage()),
       ),
     );
 
     expect(find.byType(Switch), findsOneWidget);
-    expect(themeState.isDark, isTrue);
+    expect(themeBloc.state.isDark, isTrue);
 
     await tester.tap(find.byType(Switch));
     await tester.pump();
 
-    expect(themeState.isDark, isFalse);
+    expect(themeBloc.state.isDark, isFalse);
   });
 }

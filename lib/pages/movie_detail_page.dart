@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../bloc/movie_detail/movie_detail_bloc.dart';
+import '../bloc/movie_detail/movie_detail_bundle.dart';
+import '../bloc/movie_detail/movie_detail_event.dart';
+import '../bloc/movie_detail/movie_detail_state.dart';
+import '../bloc/watchlist/watchlist_bloc.dart';
+import '../bloc/watchlist/watchlist_event.dart';
 import '../core/theme/app_colors.dart';
-import '../cubit/movie_detail_bundle.dart';
-import '../cubit/movie_detail_cubit.dart';
-import '../cubit/movie_detail_state.dart';
 import '../data/api/tmdb_api.dart';
 import '../data/api/tmdb_dio_client.dart';
-import '../data/watchlist_state.dart';
 import '../models/movie.dart';
 import '../routes/app_router.dart';
 import '../widgets/favorite_toast.dart';
@@ -27,12 +29,12 @@ class MovieDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) {
-        final cubit = MovieDetailCubit(TmdbApi(buildTmdbDio()));
+        final bloc = MovieDetailBloc(TmdbApi(buildTmdbDio()));
         final movieId = int.tryParse(movie.id);
         if (movieId != null) {
-          cubit.loadMovieDetail(movieId);
+          bloc.add(MovieDetailRequested(movieId));
         }
-        return cubit;
+        return bloc;
       },
       child: _MovieDetailView(
         movie: movie,
@@ -50,46 +52,52 @@ class _MovieDetailView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final watchlist = context.watch<WatchlistState>();
-    final isFavorite = watchlist.isFavorite(movie.id);
+    final isFavorite = context.watch<WatchlistBloc>().state.isFavorite(
+      movie.id,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
-      body: BlocBuilder<MovieDetailCubit, MovieDetailState>(
-        builder: (context, state) {
-          return Column(
-            children: [
-              Expanded(
-                child: ListView(
-                  children: [
-                    _buildHeader(context, state, isFavorite, watchlist),
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: _buildBody(context, state),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pushNamed(
-                        context,
-                        '${AppRoutes.watch}/${movie.id}',
-                        arguments: movie,
-                      );
-                    },
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Xem ngay', style: TextStyle(fontSize: 16)),
+      body: FavoriteToastListener(
+        child: BlocBuilder<MovieDetailBloc, MovieDetailState>(
+          builder: (context, state) {
+            return Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    children: [
+                      _buildHeader(context, state, isFavorite),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: _buildBody(context, state),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          );
-        },
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pushNamed(
+                          context,
+                          '${AppRoutes.watch}/${movie.id}',
+                          arguments: movie,
+                        );
+                      },
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text(
+                        'Xem ngay',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -98,7 +106,6 @@ class _MovieDetailView extends StatelessWidget {
     BuildContext context,
     MovieDetailState state,
     bool isFavorite,
-    WatchlistState watchlist,
   ) {
     final backdropUrl =
         state is MovieDetailLoaded && state.bundle.detail.backdropUrl.isNotEmpty
@@ -141,7 +148,8 @@ class _MovieDetailView extends StatelessWidget {
             child: _CircleIconButton(
               icon: isFavorite ? Icons.favorite : Icons.favorite_border,
               iconColor: isFavorite ? AppColors.primary : Colors.white,
-              onTap: () => handleFavoriteToggle(context, watchlist, movie),
+              onTap: () =>
+                  context.read<WatchlistBloc>().add(WatchlistToggled(movie)),
             ),
           ),
           if (state is MovieDetailLoaded && state.bundle.trailerVideo != null)
@@ -180,7 +188,7 @@ class _MovieDetailView extends StatelessWidget {
         onRetry: () {
           final movieId = int.tryParse(movie.id);
           if (movieId != null) {
-            context.read<MovieDetailCubit>().loadMovieDetail(movieId);
+            context.read<MovieDetailBloc>().add(MovieDetailRequested(movieId));
           }
         },
       ),
@@ -230,7 +238,11 @@ class _ErrorSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 32),
       child: Column(
         children: [
-          Icon(Icons.error_outline, size: 48, color: AppColors.textFadedOf(context)),
+          Icon(
+            Icons.error_outline,
+            size: 48,
+            color: AppColors.textFadedOf(context),
+          ),
           const SizedBox(height: 12),
           Text(
             message,
@@ -275,7 +287,11 @@ class _LoadedSection extends StatelessWidget {
               style: TextStyle(color: AppColors.textFadedOf(context)),
             ),
             const SizedBox(width: 12),
-            Icon(Icons.access_time, size: 16, color: AppColors.textFadedOf(context)),
+            Icon(
+              Icons.access_time,
+              size: 16,
+              color: AppColors.textFadedOf(context),
+            ),
             const SizedBox(width: 4),
             Text(
               bundle.runtimeLabel,
@@ -489,7 +505,10 @@ class _CircleIconButton extends StatelessWidget {
       child: Container(
         width: size,
         height: size,
-        decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+        decoration: const BoxDecoration(
+          color: Colors.black45,
+          shape: BoxShape.circle,
+        ),
         child: Icon(icon, color: iconColor, size: iconSize),
       ),
     );

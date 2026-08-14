@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secrets — real API keys/tokens must never be committed.
+# Copy lib/config/tmdb_secrets.example.dart to lib/config/tmdb_secrets.dart
+# and fill in your own TMDB credentials.
+lib/config/tmdb_secrets.dart

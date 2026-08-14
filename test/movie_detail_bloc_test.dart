@@ -1,47 +1,38 @@
-import 'package:cinema_movie/cubit/movie_detail_bundle.dart';
-import 'package:cinema_movie/cubit/movie_detail_cubit.dart';
-import 'package:cinema_movie/cubit/movie_detail_state.dart';
+import 'package:bloc_test/bloc_test.dart';
+import 'package:cinema_movie/bloc/movie_detail/movie_detail_bloc.dart';
+import 'package:cinema_movie/bloc/movie_detail/movie_detail_bundle.dart';
+import 'package:cinema_movie/bloc/movie_detail/movie_detail_event.dart';
+import 'package:cinema_movie/bloc/movie_detail/movie_detail_state.dart';
 import 'package:cinema_movie/data/api/tmdb_api.dart';
 import 'package:cinema_movie/data/models/tmdb_movie_detail_response.dart';
 import 'package:cinema_movie/data/models/tmdb_movie_response.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('MovieDetailCubit', () {
-    test('emits Loading then Loaded when all 4 requests succeed', () async {
-      final api = _FakeTmdbApi();
-      final cubit = MovieDetailCubit(api);
+  group('MovieDetailBloc', () {
+    blocTest<MovieDetailBloc, MovieDetailState>(
+      'emits Loading then Loaded when all 4 requests succeed',
+      build: () => MovieDetailBloc(_FakeTmdbApi()),
+      act: (bloc) => bloc.add(const MovieDetailRequested(693134)),
+      expect: () => [isA<MovieDetailLoading>(), isA<MovieDetailLoaded>()],
+      verify: (bloc) {
+        final loaded = bloc.state as MovieDetailLoaded;
+        expect(loaded.bundle.detail.title, 'Dune: Part Two');
+        expect(loaded.bundle.runtimeLabel, '2h 46m');
+        expect(loaded.bundle.genreNames, ['Science Fiction']);
+        expect(loaded.bundle.cast, hasLength(1));
+        expect(loaded.bundle.similarMovies, hasLength(1));
+        expect(loaded.bundle.similarMovies.first.title, 'Dune');
+        expect(loaded.bundle.trailerVideo?.key, 'xyz');
+      },
+    );
 
-      final expectation = expectLater(
-        cubit.stream,
-        emitsInOrder([isA<MovieDetailLoading>(), isA<MovieDetailLoaded>()]),
-      );
-
-      await cubit.loadMovieDetail(693134);
-      await expectation;
-
-      final loaded = cubit.state as MovieDetailLoaded;
-      expect(loaded.bundle.detail.title, 'Dune: Part Two');
-      expect(loaded.bundle.runtimeLabel, '2h 46m');
-      expect(loaded.bundle.genreNames, ['Science Fiction']);
-      expect(loaded.bundle.cast, hasLength(1));
-      expect(loaded.bundle.similarMovies, hasLength(1));
-      expect(loaded.bundle.similarMovies.first.title, 'Dune');
-      expect(loaded.bundle.trailerVideo?.key, 'xyz');
-    });
-
-    test('emits Loading then Error when a request fails', () async {
-      final api = _FakeTmdbApi(shouldThrow: true);
-      final cubit = MovieDetailCubit(api);
-
-      final expectation = expectLater(
-        cubit.stream,
-        emitsInOrder([isA<MovieDetailLoading>(), isA<MovieDetailError>()]),
-      );
-
-      await cubit.loadMovieDetail(693134);
-      await expectation;
-    });
+    blocTest<MovieDetailBloc, MovieDetailState>(
+      'emits Loading then Error when a request fails',
+      build: () => MovieDetailBloc(_FakeTmdbApi(shouldThrow: true)),
+      act: (bloc) => bloc.add(const MovieDetailRequested(693134)),
+      expect: () => [isA<MovieDetailLoading>(), isA<MovieDetailError>()],
+    );
   });
 
   group('MovieDetailBundle.trailerVideo', () {

@@ -1,6 +1,6 @@
 CINEMA_MOVIE (CineStream) — PROJECT SUMMARY
 =============================================
-Last updated: 2026-08-11 (added shimmer skeleton loading + pull-to-refresh)
+Last updated: 2026-08-13 (Provider + Cubit -> full Bloc migration)
 (Merged from the former "Project Summary.txt" + "project_summary.txt";
 this is now the single source of truth for both the app overview and the
 BLoC refactor history.)
@@ -9,8 +9,10 @@ BLoC refactor history.)
 OVERVIEW
 --------
 - CineStream is a Flutter movie streaming/demo application.
-- Uses Firebase Authentication for email/password login and Provider for
-  simple app-wide state (favorites, theme).
+- Uses Firebase Authentication for email/password login. ALL app state
+  (favorites, theme, Home/Categories/Movie Detail data) is managed by
+  flutter_bloc Blocs — see STATE MANAGEMENT — PROVIDER + CUBIT -> BLOC
+  MIGRATION below. Provider is no longer a direct dependency.
 - Favorites persist locally per-user via Hive (see FAVORITES PERSISTENCE
   below) — no server-side storage for the like/favorite feature.
 - All movie data (Home, Categories, Movie Detail) is fetched live from
@@ -153,14 +155,13 @@ TMDB config: lib/config/tmdb_secrets.dart
 Firebase Auth repository: lib/data/auth/firebase_auth_repository.dart
   - Handles sign in, registration, sign out, and auth state changes.
 
-App state (Provider / ChangeNotifier):
-  - WatchlistState (lib/data/watchlist_state.dart): manages favorite
-    movies, keyed by id but storing the full Movie object (poster/title/
-    etc. come from TMDB, so the favorites screen needs more than just an
-    id to render). Backed by a per-user Hive box — see FAVORITES
-    PERSISTENCE below.
-  - ThemeModeState (lib/data/theme_mode_state.dart): manages light/dark
-    theme state.
+App state (flutter_bloc Bloc — see PROVIDER + CUBIT -> BLOC MIGRATION):
+  - WatchlistBloc (lib/bloc/watchlist/): manages favorite movies, keyed
+    by id but storing the full Movie object (poster/title/etc. come
+    from TMDB, so the favorites screen needs more than just an id to
+    render). Backed by a per-user Hive box — see FAVORITES PERSISTENCE
+    below.
+  - ThemeBloc (lib/bloc/theme/): manages light/dark theme state.
 
 
 STATE MANAGEMENT — FutureBuilder -> BLoC MIGRATION
@@ -251,6 +252,106 @@ package was removed from pubspec.yaml (nothing else in the app imported
 it). `flutter analyze` (only the 3 pre-existing unused-import warnings
 remain) and `flutter test` (same single pre-existing widget_test.dart
 failure as before, unrelated) both confirmed clean after the removal.
+
+
+STATE MANAGEMENT — PROVIDER + CUBIT -> BLOC MIGRATION
+-----------------------------------------------------
+Background: after the FutureBuilder -> BLoC migration above, the app
+still had 2 different state-management styles: Provider/ChangeNotifier
+for the 2 app-wide states (WatchlistState, ThemeModeState), and
+flutter_bloc `Cubit` (method calls, no events) for the 3 page-level
+data loaders (HomeCubit, CategoriesCubit, MovieDetailCubit). Asked to
+unify everything onto real event-based Bloc (`XxxBloc`/`XxxEvent`/
+`XxxState`), not just Cubit, for consistency.
+
+lib/cubit/ was replaced by lib/bloc/<feature>/ (one folder per
+feature): watchlist/, theme/, home/, categories/, movie_detail/, each
+with `_bloc.dart` + `_event.dart` + `_state.dart` (movie_detail/ also
+keeps movie_detail_bundle.dart, unchanged). `provider` was removed as a
+direct dependency; `MultiProvider`/`ChangeNotifierProvider` in
+lib/main.dart became `MultiBlocProvider`/`BlocProvider`.
+
+Two design problems came up converting method-call Cubits/ChangeNotifiers
+to pure event-based Bloc, since `add(event)` doesn't return a value or a
+Future the way a direct method call did:
+
+1. WatchlistState.toggleFavorite() used to return `bool?` SYNCHRONOUSLY
+   (null if the tap was debounced) so the UI could show a "added/removed
+   favorite" SnackBar right at the tap site. WatchlistBloc's state now
+   carries a `FavoriteToggle? lastToggle` field (movieId + isFavorite,
+   Equatable) used purely as a change signal — not display data. A new
+   widget, FavoriteToastListener (lib/widgets/favorite_toast.dart), is a
+   `BlocListener<WatchlistBloc, WatchlistState>` with
+   `listenWhen: (prev, curr) => prev.lastToggle != curr.lastToggle` that
+   shows the SnackBar via `ScaffoldMessenger.of(context)`. It wraps the
+   body of MovieDetailPage's Scaffold and (via a small `_FavoritesList`
+   split-out) the body of FavoritesPage — deliberately NOT placed once
+   at the app root: BlocListener reads its Bloc immediately in
+   initState(), so a root-level listener would force WatchlistBloc (and
+   the FirebaseAuth.instance call in its constructor) to be created the
+   instant the app launches, before Firebase.initializeApp() has
+   necessarily settled and before the user ever reaches a screen that
+   needs favorites. Scoping the listener to the 2 pages that actually
+   toggle favorites keeps the original "created lazily, on first use"
+   behavior WatchlistState had under Provider. (This was found the hard
+   way: an app-root listener made test/widget_test.dart's second test,
+   which builds ProfilePage in isolation, fail with a WatchlistBloc
+   type-cast error during widget-tree teardown — fixed by moving the
+   listener down to the 2 consuming pages.)
+
+2. RefreshIndicator.onRefresh needs a `Future<void>` that completes when
+   the pull-to-refresh's data load actually finishes (so the spinner
+   stays up for the right duration) — `add(event)` returns nothing.
+   HomeBloc and CategoriesBloc each expose a small bridge method:
+     Future<void> refresh() {
+       add(const HomeRequested()); // or CategoriesRefreshRequested()
+       return stream.firstWhere((s) => s is HomeLoaded || s is HomeError);
+     }
+   Internally still 100% event-driven (`add()` + `on<Event>` handler);
+   only the public surface offers a Future for RefreshIndicator to await.
+
+Per-feature notes:
+  - ThemeBloc: 1 event (ThemeToggled), 1 field state (isDark). Done
+    first to validate the pattern end-to-end before the harder ones.
+  - WatchlistBloc: keeps 100% of WatchlistState's old logic (500ms
+    per-movie-id debounce, Hive box open/close keyed by Firebase uid via
+    authStateChanges()) — only the event/emit plumbing changed. The
+    authStateChanges() listener now dispatches an internal
+    WatchlistAuthChanged event (add()'d from the constructor, after
+    on<>() handlers are registered — add() before any handler is
+    registered throws).
+  - MovieDetailBloc: 1 event (MovieDetailRequested(movieId)), states
+    unchanged (Initial/Loading/Loaded/Error). test/movie_detail_cubit_test.dart
+    became test/movie_detail_bloc_test.dart, rewritten with
+    `blocTest` (bloc_test package) instead of manual `expectLater(cubit.stream, ...)`.
+  - HomeBloc: 1 event (HomeRequested), states unchanged; genresToShow
+    map preserved as-is.
+  - CategoriesBloc: the one feature where Bloc's event model earns its
+    keep beyond parity — the manual `Timer(400ms, ...)` debounce that
+    used to live in categories_page.dart's _onSearchChanged is gone;
+    `on<CategoriesSearchChanged>` is registered with a transformer
+    (`events.debounce(400ms).switchMap(mapper)`, from the `stream_transform`
+    package — the same operators bloc_concurrency's `restartable()`
+    uses internally) so every keystroke can `add()` immediately and the
+    Bloc itself debounces + cancels stale in-flight requests. The Bloc
+    privately tracks `_selectedGenreId`/`_query` (the last genre tapped
+    or search string) so a separate CategoriesRefreshRequested event
+    (no debounce) can replay pull-to-refresh correctly without the UI
+    needing to pass that state back in.
+
+Deliberately left unchanged: UI layout/colors/spacing/navigation, TMDB
+endpoints, the Movie model, and the Home/Categories/MovieDetail State
+classes (HomeState/CategoriesState/MovieDetailState keep the exact same
+Initial/Loading/Loaded/Error shape as before — only their Cubit became
+a Bloc).
+
+Verification: `flutter analyze` clean (0 issues, including the 3
+previously-noted unused-import warnings — no longer present).
+`flutter test`: same single pre-existing failure as always
+("app shows the splash screen title", Firebase not initialized in the
+test harness — predates this migration same as the BLoC migration
+above), all other tests (movie_detail_bloc_test.dart x6, widget_test.dart's
+profile page test) pass.
 
 
 BANNER AUTO-PLAY CAROUSEL (carousel_slider)
@@ -443,7 +544,6 @@ THEME AND UI
 
 DEPENDENCIES
 -------------
-- provider
 - firebase_core
 - firebase_auth
 - dio
@@ -451,6 +551,7 @@ DEPENDENCIES
 - json_annotation
 - flutter_bloc
 - equatable
+- stream_transform (debounce/switchMap for CategoriesBloc's search)
 - youtube_player_flutter
 - hive
 - hive_flutter
@@ -458,7 +559,11 @@ DEPENDENCIES
 - skeletonizer
 - cupertino_icons
 Dev dependencies (codegen): build_runner, retrofit_generator,
-json_serializable.
+json_serializable. Dev dependency (testing): bloc_test.
+`provider` was removed as a direct dependency in the Provider + Cubit ->
+Bloc migration (still pulled in transitively by flutter_bloc itself,
+which is built on top of it) — see STATE MANAGEMENT — PROVIDER + CUBIT
+-> BLOC MIGRATION below.
 
 
 ASSETS
