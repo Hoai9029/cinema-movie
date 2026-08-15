@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'bloc/auth/auth_bloc.dart';
 import 'bloc/history/history_bloc.dart';
 import 'bloc/profile/profile_bloc.dart';
 import 'bloc/theme/theme_bloc.dart';
@@ -30,6 +31,7 @@ Future<void> main() async {
   runApp(
     MultiBlocProvider(
       providers: [
+        BlocProvider(create: (_) => AuthBloc()),
         BlocProvider(create: (_) => WatchlistBloc()),
         BlocProvider(create: (_) => HistoryBloc()),
         BlocProvider(create: (_) => ThemeBloc()),

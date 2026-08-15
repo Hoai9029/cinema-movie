@@ -95,26 +95,41 @@ class _HomePageState extends State<HomePage> {
       // chúng) chỉ được tạo đúng 1 lần, tồn tại xuyên suốt vòng đời
       // HomePage.
       body: IndexedStack(index: _selectedIndex, children: _tabs),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        // setState báo Flutter: "dữ liệu vừa đổi, vẽ lại giao diện đi".
-        onTap: (index) => setState(() => _selectedIndex = index),
-        backgroundColor: AppColors.cardOf(context),
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textFadedOf(context),
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Trang chủ'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.grid_view),
-            label: 'Danh mục',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'Yêu thích',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Hồ sơ'),
-        ],
+      // Theme() bọc ngoài để TẮT hiệu ứng ripple "sóng nước" mặc định
+      // của Material 3 (InkSparkle) khi bấm vào từng tab. Các app thực
+      // tế (Instagram, YouTube, Zalo...) chỉ đổi màu icon/label ngay
+      // lập tức, không có gợn sóng lan tỏa loè loẹt.
+      bottomNavigationBar: Theme(
+        data: Theme.of(context).copyWith(
+          splashFactory: NoSplash.splashFactory,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          // setState báo Flutter: "dữ liệu vừa đổi, vẽ lại giao diện đi".
+          onTap: (index) => setState(() => _selectedIndex = index),
+          backgroundColor: AppColors.cardOf(context),
+          selectedItemColor: AppColors.primary,
+          unselectedItemColor: AppColors.textFadedOf(context),
+          type: BottomNavigationBarType.fixed,
+          enableFeedback: false,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: 'Trang chủ',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.grid_view),
+              label: 'Danh mục',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.favorite),
+              label: 'Yêu thích',
+            ),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Hồ sơ'),
+          ],
+        ),
       ),
     );
   }
