@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
+import '../bloc/history/history_bloc.dart';
+import '../bloc/history/history_event.dart';
 import '../bloc/movie_detail/movie_detail_bloc.dart';
 import '../bloc/movie_detail/movie_detail_bundle.dart';
 import '../bloc/movie_detail/movie_detail_event.dart';
@@ -124,6 +126,7 @@ class _MovieDetailViewState extends State<_MovieDetailView> {
         flags: const YoutubePlayerFlags(autoPlay: true, mute: false),
       );
     });
+    context.read<HistoryBloc>().add(HistoryRecorded(widget.movie));
   }
 
   void _playFullMovie() {
