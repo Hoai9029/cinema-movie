@@ -16,6 +16,12 @@ class AppRoutes {
   static const editProfile = '/edit-profile';
 }
 
+// Dùng chung cho mọi trang cần biết khi nào bị 1 trang khác che lên trên
+// (ví dụ MovieDetailPage cần tạm dừng video khi điều hướng sang phim
+// khác) — đăng ký MỘT LẦN vào navigatorObservers của MaterialApp, các
+// trang con subscribe qua RouteAware.
+final routeObserver = RouteObserver<PageRoute<dynamic>>();
+
 class AppRouter {
   static Route<dynamic> generateRoute(RouteSettings settings) {
     final name = settings.name ?? '';
