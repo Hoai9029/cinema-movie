@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/profile/profile_bloc.dart';
 import '../bloc/theme/theme_bloc.dart';
 import '../bloc/theme/theme_event.dart';
+import '../core/constants/app_avatars.dart';
 import '../core/theme/app_colors.dart';
 import '../data/auth/firebase_auth_repository.dart';
 import '../routes/app_router.dart';
 import '../widgets/responsive_container.dart';
+import 'edit_profile_page.dart';
+import 'watch_history_page.dart';
 
-// ============================================================
-// StatelessWidget: trang hồ sơ chỉ hiển thị dữ liệu tĩnh (thông
-// tin cá nhân giả, lịch sử xem giả) nên không cần state riêng.
-// ============================================================
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
@@ -25,6 +25,7 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeState = context.watch<ThemeBloc>().state;
+    final profileState = context.watch<ProfileBloc>().state;
 
     return ResponsiveContainer(
       maxWidth: 700,
@@ -33,31 +34,60 @@ class ProfilePage extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            // Column: avatar + tên + email canh giữa theo chiều dọc.
+            // Column: avatar + tên + SĐT + email + nút chỉnh sửa, canh
+            // giữa theo chiều dọc. profileState đến từ ProfileBloc dùng
+            // chung với header ở HomePage, nên đổi avatar/tên ở
+            // EditProfilePage sẽ tự phản ánh ở cả hai nơi.
             Center(
               child: Column(
                 children: [
                   CircleAvatar(
                     radius: 48,
                     backgroundColor: AppColors.primary,
-                    child: Icon(Icons.person, size: 48, color: Colors.white),
+                    backgroundImage: AssetImage(
+                      AppAvatars.pathOf(profileState.avatarId),
+                    ),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   Text(
-                    'Nguyễn Văn A',
+                    profileState.name.isEmpty
+                        ? 'Người dùng'
+                        : profileState.name,
                     style: TextStyle(
                       color: AppColors.textOf(context),
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(height: 6),
+                  const SizedBox(height: 6),
                   Text(
-                    'nguyenvana@email.com',
+                    profileState.email,
                     style: TextStyle(
                       color: AppColors.textFadedOf(context),
                       fontSize: 14,
                     ),
+                  ),
+                  if (profileState.phone.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      profileState.phone,
+                      style: TextStyle(
+                        color: AppColors.textFadedOf(context),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const EditProfilePage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.edit, size: 18),
+                    label: const Text('Chỉnh sửa hồ sơ'),
                   ),
                 ],
               ),
@@ -90,74 +120,46 @@ class ProfilePage extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
-
-            Text(
-              'Đã xem gần đây',
-              style: TextStyle(
-                color: AppColors.textOf(context),
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
             const SizedBox(height: 12),
-            const _WatchHistoryItem(
-              title: 'Dune: Part Two',
-              subtitle: 'Đã xem 45 phút',
-              progress: 0.6,
-            ),
-            const SizedBox(height: 12),
-            const _WatchHistoryItem(
-              title: 'Oppenheimer',
-              subtitle: 'Đã xem xong',
-              progress: 1.0,
-            ),
-            const SizedBox(height: 12),
-            const _WatchHistoryItem(
-              title: 'Wonka',
-              subtitle: 'Đã xem 20 phút',
-              progress: 0.25,
-            ),
 
-            const SizedBox(height: 28),
-
-            // ----------------------------------------------------
-            // Bảng tổng hợp các khái niệm Flutter đã áp dụng trong
-            // app này — để người xem/giảng viên dễ đối chiếu lý
-            // thuyết đã học với phần thực hành trong code.
-            // ----------------------------------------------------
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.cardOf(context),
+            Material(
+              color: AppColors.cardOf(context),
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
                 borderRadius: BorderRadius.circular(14),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Kiến thức Flutterr ',
-                    style: TextStyle(
-                      color: AppColors.textOf(context),
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const WatchHistoryPage(),
                     ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(Icons.history, color: AppColors.textOf(context)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Lịch sử xem',
+                          style: TextStyle(
+                            color: AppColors.textOf(context),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right,
+                        color: AppColors.textFadedOf(context),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    ' README.md để biết vị trí ',
-                    style: TextStyle(
-                      color: AppColors.textFadedOf(context),
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  const _ConceptCheck('--'),
-                ],
+                ),
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
 
             SizedBox(
               width: double.infinity,
@@ -182,94 +184,6 @@ class ProfilePage extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// Một dòng trong bảng lịch sử xem, có thanh tiến trình xem dở.
-class _WatchHistoryItem extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final double progress; // 0.0 - 1.0
-
-  const _WatchHistoryItem({
-    required this.title,
-    required this.subtitle,
-    required this.progress,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.movie_creation_outlined, color: AppColors.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: AppColors.textOf(context),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: AppColors.textFadedOf(context),
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 4,
-                    backgroundColor: AppColors.surfaceOf(context),
-                    valueColor: const AlwaysStoppedAnimation(AppColors.primary),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Một dòng check-list nhỏ, dùng Row: icon check + chữ mô tả.
-class _ConceptCheck extends StatelessWidget {
-  final String label;
-  const _ConceptCheck(this.label);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.check_circle, color: AppColors.success, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(color: AppColors.textOf(context), fontSize: 13),
-            ),
-          ),
-        ],
       ),
     );
   }

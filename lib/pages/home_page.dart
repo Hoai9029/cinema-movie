@@ -5,6 +5,10 @@ import 'package:skeletonizer/skeletonizer.dart';
 import '../bloc/home/home_bloc.dart';
 import '../bloc/home/home_event.dart';
 import '../bloc/home/home_state.dart';
+import '../bloc/profile/profile_bloc.dart';
+import '../bloc/profile/profile_event.dart';
+import '../bloc/profile/profile_state.dart';
+import '../core/constants/app_avatars.dart';
 import '../core/theme/app_colors.dart';
 import '../data/api/tmdb_api.dart';
 import '../data/api/tmdb_dio_client.dart';
@@ -49,18 +53,33 @@ class _HomePageState extends State<HomePage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // Nạp hồ sơ (tên/SĐT/avatar) MỘT LẦN khi vào Home. ProfileBloc
+    // được tạo ở gốc app (main.dart) nên header dưới đây và
+    // ProfilePage đều đọc chung state này.
+    context.read<ProfileBloc>().add(const ProfileStarted());
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
       appBar: AppBar(
         backgroundColor: AppColors.backgroundOf(context),
         title: Text(_titles[_selectedIndex]),
-        actions: const [
+        actions: [
           Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: CircleAvatar(
-              backgroundImage: AssetImage('assets/images/avatar.png'),
-              backgroundColor: AppColors.primary,
+            padding: const EdgeInsets.only(right: 16),
+            child: BlocBuilder<ProfileBloc, ProfileState>(
+              builder: (context, state) {
+                return CircleAvatar(
+                  backgroundImage: AssetImage(
+                    AppAvatars.pathOf(state.avatarId),
+                  ),
+                  backgroundColor: AppColors.primary,
+                );
+              },
             ),
           ),
         ],
@@ -76,26 +95,41 @@ class _HomePageState extends State<HomePage> {
       // chúng) chỉ được tạo đúng 1 lần, tồn tại xuyên suốt vòng đời
       // HomePage.
       body: IndexedStack(index: _selectedIndex, children: _tabs),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        // setState báo Flutter: "dữ liệu vừa đổi, vẽ lại giao diện đi".
-        onTap: (index) => setState(() => _selectedIndex = index),
-        backgroundColor: AppColors.cardOf(context),
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textFadedOf(context),
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Trang chủ'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.grid_view),
-            label: 'Danh mục',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'Yêu thích',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Hồ sơ'),
-        ],
+      // Theme() bọc ngoài để TẮT hiệu ứng ripple "sóng nước" mặc định
+      // của Material 3 (InkSparkle) khi bấm vào từng tab. Các app thực
+      // tế (Instagram, YouTube, Zalo...) chỉ đổi màu icon/label ngay
+      // lập tức, không có gợn sóng lan tỏa loè loẹt.
+      bottomNavigationBar: Theme(
+        data: Theme.of(context).copyWith(
+          splashFactory: NoSplash.splashFactory,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          // setState báo Flutter: "dữ liệu vừa đổi, vẽ lại giao diện đi".
+          onTap: (index) => setState(() => _selectedIndex = index),
+          backgroundColor: AppColors.cardOf(context),
+          selectedItemColor: AppColors.primary,
+          unselectedItemColor: AppColors.textFadedOf(context),
+          type: BottomNavigationBarType.fixed,
+          enableFeedback: false,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: 'Trang chủ',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.grid_view),
+              label: 'Danh mục',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.favorite),
+              label: 'Yêu thích',
+            ),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Hồ sơ'),
+          ],
+        ),
       ),
     );
   }

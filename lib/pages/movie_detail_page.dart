@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:skeletonizer/skeletonizer.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
+import '../bloc/history/history_bloc.dart';
+import '../bloc/history/history_event.dart';
 import '../bloc/movie_detail/movie_detail_bloc.dart';
 import '../bloc/movie_detail/movie_detail_bundle.dart';
 import '../bloc/movie_detail/movie_detail_event.dart';
@@ -10,10 +14,59 @@ import '../bloc/watchlist/watchlist_event.dart';
 import '../core/theme/app_colors.dart';
 import '../data/api/tmdb_api.dart';
 import '../data/api/tmdb_dio_client.dart';
+import '../data/models/tmdb_movie_detail_response.dart';
 import '../models/movie.dart';
-import '../routes/app_router.dart';
 import '../widgets/favorite_toast.dart';
-import 'trailer_player_page.dart';
+
+// Dữ liệu phim đầy đủ hiện chưa có nguồn thật (chưa có backend cấp link
+// phim) — dùng tạm 1 video YouTube làm giả lập cho nút "Xem ngay" cho
+// tới khi API trả về link phim thật. Parse bằng chính hàm tiện ích của
+// package thay vì tự cắt chuỗi tay.
+final String _fakeFullMovieVideoId =
+    YoutubePlayer.convertUrlToId(
+      'https://youtu.be/h_1t3-6oWz4?si=FxuDuOyQbFtBOBED',
+    ) ??
+    '';
+
+// Dữ liệu giả chỉ để dựng khung xương (skeleton) cho phần thông tin
+// phim khi đang tải — Skeletonizer sẽ thay chữ/ảnh bằng khối bone
+// xám lấp lánh, giữ nguyên bố cục thật của _LoadedSection.
+final _fakeMovieDetailBundle = MovieDetailBundle(
+  detail: const TmdbMovieDetailResponse(
+    id: 0,
+    title: 'Đang tải tên phim',
+    overview:
+        'Đang tải nội dung mô tả phim, đoạn văn bản giả này chỉ để giữ '
+        'đúng chiều cao của khung xương trong lúc chờ dữ liệu thật.',
+    posterPath: null,
+    backdropPath: null,
+    voteAverage: 0,
+    runtime: 0,
+    genres: [TmdbGenre(id: 0, name: 'Thể loại')],
+  ),
+  cast: List.generate(
+    4,
+    (_) => const TmdbCastMember(
+      id: 0,
+      name: 'Diễn viên',
+      character: '',
+      profilePath: null,
+    ),
+  ),
+  videos: const [],
+  similarMovies: List.generate(
+    4,
+    (i) => Movie(
+      id: 'fake-$i',
+      title: 'Tên phim',
+      poster: '',
+      duration: '',
+      rating: 0,
+      overview: '',
+      genre: '',
+    ),
+  ),
+);
 
 class MovieDetailPage extends StatelessWidget {
   final Movie movie;
@@ -44,59 +97,159 @@ class MovieDetailPage extends StatelessWidget {
   }
 }
 
-class _MovieDetailView extends StatelessWidget {
+class _MovieDetailView extends StatefulWidget {
   const _MovieDetailView({required this.movie, required this.heroTag});
 
   final Movie movie;
   final String heroTag;
 
   @override
+  State<_MovieDetailView> createState() => _MovieDetailViewState();
+}
+
+class _MovieDetailViewState extends State<_MovieDetailView> {
+  // Một controller duy nhất dùng chung cho cả trailer lẫn "xem ngay":
+  // đổi nguồn video bằng controller.load(id) thay vì tạo controller mới
+  // mỗi lần, để không phải mở WebView mới hay gọi lại API chi tiết phim.
+  YoutubePlayerController? _playerController;
+
+  @override
+  void dispose() {
+    _playerController?.dispose();
+    super.dispose();
+  }
+
+  void _startPlayback(String videoId) {
+    setState(() {
+      _playerController = YoutubePlayerController(
+        initialVideoId: videoId,
+        flags: const YoutubePlayerFlags(autoPlay: true, mute: false),
+      );
+    });
+    context.read<HistoryBloc>().add(HistoryRecorded(widget.movie));
+  }
+
+  void _playFullMovie() {
+    if (_fakeFullMovieVideoId.isEmpty) return;
+    final controller = _playerController;
+    if (controller == null) {
+      _startPlayback(_fakeFullMovieVideoId);
+    } else {
+      controller.load(_fakeFullMovieVideoId);
+    }
+  }
+
+  void _seekBy(Duration offset) {
+    final controller = _playerController;
+    if (controller == null) return;
+    final duration = controller.metadata.duration;
+    var target = controller.value.position + offset;
+    if (target < Duration.zero) target = Duration.zero;
+    if (duration > Duration.zero && target > duration) target = duration;
+    controller.seekTo(target);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isFavorite = context.watch<WatchlistBloc>().state.isFavorite(
-      movie.id,
+      widget.movie.id,
     );
 
+    return BlocConsumer<MovieDetailBloc, MovieDetailState>(
+      // Khi chi tiết phim tải xong và có trailer, tự phát ngay — không
+      // cần người dùng bấm nút play nữa.
+      listener: (context, state) {
+        if (state is MovieDetailLoaded && _playerController == null) {
+          final trailer = state.bundle.trailerVideo;
+          if (trailer != null) _startPlayback(trailer.key);
+        }
+      },
+      builder: (context, state) {
+        final controller = _playerController;
+        if (controller == null) {
+          return _buildScaffold(context, state, isFavorite, null);
+        }
+
+        // YoutubePlayerBuilder tự quản lý việc xoay ngang/fullscreen:
+        // bấm nút fullscreen mặc định trong bottomActions sẽ khoá xoay
+        // ngang + ẩn status bar; bấm back hoặc bấm lại nút đó sẽ tự thu
+        // nhỏ về đúng vị trí nhúng trong trang detail này.
+        return YoutubePlayerBuilder(
+          player: YoutubePlayer(
+            controller: controller,
+            showVideoProgressIndicator: true,
+            bottomActions: [
+              const SizedBox(width: 8),
+              const CurrentPosition(),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.replay_10, color: Colors.white),
+                tooltip: 'Tua lùi 10 giây',
+                onPressed: () => _seekBy(const Duration(seconds: -10)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.forward_10, color: Colors.white),
+                tooltip: 'Tua tới 10 giây',
+                onPressed: () => _seekBy(const Duration(seconds: 10)),
+              ),
+              const ProgressBar(isExpanded: true),
+              const RemainingDuration(),
+              const FullScreenButton(),
+            ],
+          ),
+          builder: (context, player) =>
+              _buildScaffold(context, state, isFavorite, player),
+        );
+      },
+    );
+  }
+
+  Widget _buildScaffold(
+    BuildContext context,
+    MovieDetailState state,
+    bool isFavorite,
+    Widget? player,
+  ) {
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
       body: FavoriteToastListener(
-        child: BlocBuilder<MovieDetailBloc, MovieDetailState>(
-          builder: (context, state) {
-            return Column(
-              children: [
-                Expanded(
-                  child: ListView(
-                    children: [
-                      _buildHeader(context, state, isFavorite),
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: _buildBody(context, state),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pushNamed(
-                          context,
-                          '${AppRoutes.watch}/${movie.id}',
-                          arguments: movie,
-                        );
-                      },
-                      icon: const Icon(Icons.play_arrow),
-                      label: const Text(
-                        'Xem ngay',
-                        style: TextStyle(fontSize: 16),
-                      ),
+        child: Column(
+          children: [
+            // Header cố định NGOÀI ListView — video (nếu đang phát) đứng
+            // yên khi cuộn, giống player ghim đầu trang của YouTube app,
+            // chỉ phần thông tin bên dưới cuộn.
+            _buildHeader(context, state, isFavorite, player),
+            Expanded(
+              // Header phía trên đã tự tiêu thụ topSafeArea rồi — nếu
+              // không loại bỏ nó khỏi MediaQuery ở đây, ListView (không
+              // truyền padding riêng) sẽ tự động cộng thêm đúng
+              // topSafeArea đó vào đầu nội dung, cộng dồn với Padding
+              // 16 bên dưới thành khoảng trống lớn bất thường.
+              child: MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                child: ListView(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: _buildBody(context, state),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            );
-          },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _playFullMovie,
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Xem ngay', style: TextStyle(fontSize: 16)),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -106,94 +259,110 @@ class _MovieDetailView extends StatelessWidget {
     BuildContext context,
     MovieDetailState state,
     bool isFavorite,
+    Widget? player,
   ) {
     final backdropUrl =
         state is MovieDetailLoaded && state.bundle.detail.backdropUrl.isNotEmpty
         ? state.bundle.detail.backdropUrl
-        : movie.poster;
+        : widget.movie.poster;
 
-    return SizedBox(
-      height: 300,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Hero(
-            tag: heroTag,
-            child: Container(
-              color: AppColors.card,
-              child: _buildPoster(backdropUrl, context),
+    // Vùng status bar/tai thỏ (punch-hole của Pixel 8...) khác nhau theo
+    // từng máy — lấy đúng chiều cao thật thay vì đoán 1 số cố định, để
+    // khung video/ảnh không bao giờ bắt đầu trước điểm này.
+    final topSafeArea = MediaQuery.paddingOf(context).top;
+    // Poster tĩnh dùng chung tỉ lệ 16:9 với video (thay vì 1 chiều cao cố
+    // định khác) để khi trailer tự phát, khung header không đổi kích
+    // thước đột ngột — chuyển mượt từ ảnh sang video tại đúng chỗ.
+    final headerHeight = MediaQuery.sizeOf(context).width * 9 / 16;
+    final buttonTop = topSafeArea + 8;
+
+    return Stack(
+      children: [
+        Column(
+          children: [
+            // Nền cùng màu theme toàn màn hình lấp vùng status bar, để
+            // video/ảnh không bị đẩy tràn lên sát mép trên hoặc bị punch-
+            // hole che, đồng thời tạo cảm giác liền mạch với phần dưới.
+            Container(
+              height: topSafeArea,
+              color: AppColors.backgroundOf(context),
             ),
-          ),
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.black45, Colors.transparent, Colors.black87],
-                stops: [0.0, 0.4, 1.0],
-              ),
-            ),
-          ),
-          Positioned(
-            top: 12,
-            left: 12,
-            child: _CircleIconButton(
-              icon: Icons.arrow_back,
-              onTap: () => Navigator.pop(context),
-            ),
-          ),
-          Positioned(
-            top: 12,
-            right: 12,
-            child: _CircleIconButton(
-              icon: isFavorite ? Icons.favorite : Icons.favorite_border,
-              iconColor: isFavorite ? AppColors.primary : Colors.white,
-              onTap: () =>
-                  context.read<WatchlistBloc>().add(WatchlistToggled(movie)),
-            ),
-          ),
-          if (state is MovieDetailLoaded && state.bundle.trailerVideo != null)
-            Center(
-              child: _CircleIconButton(
-                icon: Icons.play_arrow,
-                size: 64,
-                iconSize: 32,
-                onTap: () {
-                  final trailer = state.bundle.trailerVideo!;
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => TrailerPlayerPage(
-                        videoId: trailer.key,
-                        title: trailer.name,
+            SizedBox(
+              height: headerHeight,
+              child:
+                  player ??
+                  Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Hero(
+                        tag: widget.heroTag,
+                        child: Container(
+                          color: AppColors.card,
+                          child: _buildPoster(backdropUrl, context),
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
+                      Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black45,
+                              Colors.transparent,
+                              Colors.black87,
+                            ],
+                            stops: [0.0, 0.4, 1.0],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
             ),
-        ],
-      ),
+          ],
+        ),
+        Positioned(
+          top: buttonTop,
+          left: 12,
+          child: _CircleIconButton(
+            icon: Icons.arrow_back,
+            onTap: () => Navigator.pop(context),
+          ),
+        ),
+        Positioned(
+          top: buttonTop,
+          right: 12,
+          child: _CircleIconButton(
+            icon: isFavorite ? Icons.favorite : Icons.favorite_border,
+            iconColor: isFavorite ? AppColors.primary : Colors.white,
+            onTap: () => context.read<WatchlistBloc>().add(
+              WatchlistToggled(widget.movie),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildBody(BuildContext context, MovieDetailState state) {
     return switch (state) {
-      MovieDetailInitial() || MovieDetailLoading() => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 48),
-        child: Center(child: CircularProgressIndicator()),
+      MovieDetailInitial() || MovieDetailLoading() => Skeletonizer(
+        enabled: true,
+        child: _LoadedSection(
+          movie: widget.movie,
+          bundle: _fakeMovieDetailBundle,
+        ),
       ),
       MovieDetailError(:final message) => _ErrorSection(
         message: message,
         onRetry: () {
-          final movieId = int.tryParse(movie.id);
+          final movieId = int.tryParse(widget.movie.id);
           if (movieId != null) {
             context.read<MovieDetailBloc>().add(MovieDetailRequested(movieId));
           }
         },
       ),
       MovieDetailLoaded(:final bundle) => _LoadedSection(
-        movie: movie,
+        movie: widget.movie,
         bundle: bundle,
       ),
     };
@@ -486,15 +655,14 @@ class _LoadedSection extends StatelessWidget {
 class _CircleIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
-  final double size;
-  final double iconSize;
   final Color iconColor;
+
+  static const double size = 40;
+  static const double iconSize = 20;
 
   const _CircleIconButton({
     required this.icon,
     required this.onTap,
-    this.size = 40,
-    this.iconSize = 20,
     this.iconColor = Colors.white,
   });
 

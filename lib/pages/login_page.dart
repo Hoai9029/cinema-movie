@@ -13,6 +13,8 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -23,9 +25,31 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  String? _validateName(String? value) {
+    if (_isLogin) return null;
+    if (value == null || value.trim().isEmpty) {
+      return 'Vui lòng nhập họ tên';
+    }
+    return null;
+  }
+
+  String? _validatePhone(String? value) {
+    if (_isLogin) return null;
+    if (value == null || value.trim().isEmpty) {
+      return 'Vui lòng nhập số điện thoại';
+    }
+    final phoneRegex = RegExp(r'^0\d{9}$');
+    if (!phoneRegex.hasMatch(value.trim())) {
+      return 'Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0)';
+    }
+    return null;
   }
 
   String? _validateEmail(String? value) {
@@ -69,6 +93,8 @@ class _LoginPageState extends State<LoginPage> {
         await repository.registerWithEmailAndPassword(
           _emailController.text.trim(),
           _passwordController.text,
+          name: _nameController.text.trim(),
+          phone: _phoneController.text.trim(),
         );
       }
 
@@ -131,6 +157,29 @@ class _LoginPageState extends State<LoginPage> {
                       style: TextStyle(color: AppColors.textFadedOf(context)),
                     ),
                     const SizedBox(height: 32),
+                    if (!_isLogin) ...[
+                      TextFormField(
+                        controller: _nameController,
+                        style: TextStyle(color: AppColors.textOf(context)),
+                        validator: _validateName,
+                        decoration: const InputDecoration(
+                          hintText: 'Họ và tên',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        style: TextStyle(color: AppColors.textOf(context)),
+                        validator: _validatePhone,
+                        decoration: const InputDecoration(
+                          hintText: 'Số điện thoại',
+                          prefixIcon: Icon(Icons.phone_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
