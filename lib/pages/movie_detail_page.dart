@@ -217,13 +217,22 @@ class _MovieDetailViewState extends State<_MovieDetailView> {
             // chỉ phần thông tin bên dưới cuộn.
             _buildHeader(context, state, isFavorite, player),
             Expanded(
-              child: ListView(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: _buildBody(context, state),
-                  ),
-                ],
+              // Header phía trên đã tự tiêu thụ topSafeArea rồi — nếu
+              // không loại bỏ nó khỏi MediaQuery ở đây, ListView (không
+              // truyền padding riêng) sẽ tự động cộng thêm đúng
+              // topSafeArea đó vào đầu nội dung, cộng dồn với Padding
+              // 16 bên dưới thành khoảng trống lớn bất thường.
+              child: MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                child: ListView(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: _buildBody(context, state),
+                    ),
+                  ],
+                ),
               ),
             ),
             Padding(
@@ -233,10 +242,7 @@ class _MovieDetailViewState extends State<_MovieDetailView> {
                 child: ElevatedButton.icon(
                   onPressed: _playFullMovie,
                   icon: const Icon(Icons.play_arrow),
-                  label: const Text(
-                    'Xem ngay',
-                    style: TextStyle(fontSize: 16),
-                  ),
+                  label: const Text('Xem ngay', style: TextStyle(fontSize: 16)),
                 ),
               ),
             ),
@@ -257,67 +263,80 @@ class _MovieDetailViewState extends State<_MovieDetailView> {
         ? state.bundle.detail.backdropUrl
         : widget.movie.poster;
 
-    const headerHeight = 300.0;
+    // Vùng status bar/tai thỏ (punch-hole của Pixel 8...) khác nhau theo
+    // từng máy — lấy đúng chiều cao thật thay vì đoán 1 số cố định, để
+    // khung video/ảnh không bao giờ bắt đầu trước điểm này.
+    final topSafeArea = MediaQuery.paddingOf(context).top;
+    // Poster tĩnh dùng chung tỉ lệ 16:9 với video (thay vì 1 chiều cao cố
+    // định khác) để khi trailer tự phát, khung header không đổi kích
+    // thước đột ngột — chuyển mượt từ ảnh sang video tại đúng chỗ.
+    final headerHeight = MediaQuery.sizeOf(context).width * 9 / 16;
+    final buttonTop = topSafeArea + 8;
 
-    // Khung 300px không đúng tỉ lệ 16:9 nên video bị letterbox (viền đen
-    // trên/dưới, do bề rộng màn hình luôn nhỏ hơn 300*16/9). Tính đúng
-    // độ dày viền đen đó để dịch 2 nút xuống, thay vì đoán 1 số cố định
-    // (sẽ vỡ trên màn hình khác kích thước) hoặc đổi cao khung header
-    // (dễ đụng tai thỏ/status bar).
-    final videoWidth = MediaQuery.sizeOf(context).width;
-    final videoHeight = videoWidth * 9 / 16;
-    final letterboxTop = player != null && videoHeight < headerHeight
-        ? (headerHeight - videoHeight) / 2
-        : 0.0;
-    final buttonTop = 12.0 + letterboxTop;
-
-    return SizedBox(
-      height: headerHeight,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (player != null)
-            player
-          else ...[
-            Hero(
-              tag: widget.heroTag,
-              child: Container(
-                color: AppColors.card,
-                child: _buildPoster(backdropUrl, context),
-              ),
-            ),
+    return Stack(
+      children: [
+        Column(
+          children: [
+            // Nền cùng màu theme toàn màn hình lấp vùng status bar, để
+            // video/ảnh không bị đẩy tràn lên sát mép trên hoặc bị punch-
+            // hole che, đồng thời tạo cảm giác liền mạch với phần dưới.
             Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.black45, Colors.transparent, Colors.black87],
-                  stops: [0.0, 0.4, 1.0],
-                ),
-              ),
+              height: topSafeArea,
+              color: AppColors.backgroundOf(context),
+            ),
+            SizedBox(
+              height: headerHeight,
+              child:
+                  player ??
+                  Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Hero(
+                        tag: widget.heroTag,
+                        child: Container(
+                          color: AppColors.card,
+                          child: _buildPoster(backdropUrl, context),
+                        ),
+                      ),
+                      Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black45,
+                              Colors.transparent,
+                              Colors.black87,
+                            ],
+                            stops: [0.0, 0.4, 1.0],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
             ),
           ],
-          Positioned(
-            top: buttonTop,
-            left: 12,
-            child: _CircleIconButton(
-              icon: Icons.arrow_back,
-              onTap: () => Navigator.pop(context),
+        ),
+        Positioned(
+          top: buttonTop,
+          left: 12,
+          child: _CircleIconButton(
+            icon: Icons.arrow_back,
+            onTap: () => Navigator.pop(context),
+          ),
+        ),
+        Positioned(
+          top: buttonTop,
+          right: 12,
+          child: _CircleIconButton(
+            icon: isFavorite ? Icons.favorite : Icons.favorite_border,
+            iconColor: isFavorite ? AppColors.primary : Colors.white,
+            onTap: () => context.read<WatchlistBloc>().add(
+              WatchlistToggled(widget.movie),
             ),
           ),
-          Positioned(
-            top: buttonTop,
-            right: 12,
-            child: _CircleIconButton(
-              icon: isFavorite ? Icons.favorite : Icons.favorite_border,
-              iconColor: isFavorite ? AppColors.primary : Colors.white,
-              onTap: () => context.read<WatchlistBloc>().add(
-                WatchlistToggled(widget.movie),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
