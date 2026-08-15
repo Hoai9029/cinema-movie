@@ -19,6 +19,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Hive.initFlutter();
+  final settingsBox = await Hive.openBox('settings');
 
   try {
     await Firebase.initializeApp(
@@ -34,7 +35,7 @@ Future<void> main() async {
         BlocProvider(create: (_) => AuthBloc()),
         BlocProvider(create: (_) => WatchlistBloc()),
         BlocProvider(create: (_) => HistoryBloc()),
-        BlocProvider(create: (_) => ThemeBloc()),
+        BlocProvider(create: (_) => ThemeBloc(settingsBox: settingsBox)),
         BlocProvider(create: (_) => ProfileBloc()),
       ],
       child: const MyApp(),
@@ -63,6 +64,7 @@ class MyApp extends StatelessWidget {
       theme: isDark ? AppTheme.dark : AppTheme.light,
       initialRoute: AppRoutes.splash,
       onGenerateRoute: AppRouter.generateRoute,
+      navigatorObservers: [routeObserver],
     );
   }
 }

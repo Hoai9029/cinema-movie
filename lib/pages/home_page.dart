@@ -115,10 +115,7 @@ class _HomePageState extends State<HomePage> {
           type: BottomNavigationBarType.fixed,
           enableFeedback: false,
           items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home),
-              label: 'Trang chủ',
-            ),
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Trang chủ'),
             BottomNavigationBarItem(
               icon: Icon(Icons.grid_view),
               label: 'Danh mục',
@@ -348,13 +345,13 @@ class _HomeTabContentState extends State<_HomeTabContent> {
         const SizedBox(height: 24),
 
         // ---- "Trending" (thay cho "Phim mới nhất" cũ, theo ảnh mẫu) ----
-        SectionTitle(title: 'Trending'),
+        SectionTitle(title: 'Phim HOT'),
         const SizedBox(height: 12),
         _buildMovieRow(context, trending, sectionKey: 'trending'),
         const SizedBox(height: 24),
 
         // ---- "Recommended For You" (hàng thứ 2 trong ảnh mẫu) ----
-        SectionTitle(title: 'Recommended For You'),
+        SectionTitle(title: 'Phim đề xuất'),
         const SizedBox(height: 12),
         _buildMovieRow(context, recommended, sectionKey: 'recommended'),
         const SizedBox(height: 24),
@@ -426,7 +423,7 @@ class _HomeTabContentState extends State<_HomeTabContent> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final genreEntry in genreMovies.entries) ...[
-          SectionTitle(title: 'Tương tự - ${genreEntry.key}'),
+          SectionTitle(title: '${genreEntry.key}'),
           const SizedBox(height: 12),
           _buildMovieRow(
             context,

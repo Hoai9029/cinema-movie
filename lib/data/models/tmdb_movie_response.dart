@@ -1,7 +1,11 @@
 import '../../models/movie.dart';
 
 class TmdbMovieResponse {
-  const TmdbMovieResponse({required this.results});
+  const TmdbMovieResponse({
+    required this.results,
+    this.page = 1,
+    this.totalPages = 1,
+  });
 
   factory TmdbMovieResponse.fromJson(Map<String, dynamic> json) {
     final results =
@@ -9,10 +13,16 @@ class TmdbMovieResponse {
             ?.map((item) => TmdbMovie.fromJson(item as Map<String, dynamic>))
             .toList() ??
         <TmdbMovie>[];
-    return TmdbMovieResponse(results: results);
+    return TmdbMovieResponse(
+      results: results,
+      page: (json['page'] as num?)?.toInt() ?? 1,
+      totalPages: (json['total_pages'] as num?)?.toInt() ?? 1,
+    );
   }
 
   final List<TmdbMovie> results;
+  final int page;
+  final int totalPages;
 }
 
 class TmdbMovie {

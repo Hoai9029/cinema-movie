@@ -30,11 +30,27 @@ class _CategoriesPageState extends State<CategoriesPage> {
   final TextEditingController _searchController = TextEditingController();
 
   // Thể loại hiển thị dạng chip, kèm id thể loại chuẩn của TMDB.
+  // Đầy đủ 19 thể loại phim TMDB, tên dịch sang tiếng Việt cho đồng bộ.
   static const Map<String, int> _genres = {
-    'Horror': 27,
-    'Romance': 10749,
-    'Action': 28,
-    'Fantasy': 14,
+    'Hành Động': 28,
+    'Phiêu Lưu': 12,
+    'Hoạt Hình': 16,
+    'Hài': 35,
+    'Tội Phạm': 80,
+    'Tài Liệu': 99,
+    'Chính Kịch': 18,
+    'Gia Đình': 10751,
+    'Giả Tưởng': 14,
+    'Lịch Sử': 36,
+    'Kinh Dị': 27,
+    'Âm Nhạc': 10402,
+    'Bí Ẩn': 9648,
+    'Lãng Mạn': 10749,
+    'Khoa Học Viễn Tưởng': 878,
+    'Phim Truyền Hình': 10770,
+    'Giật Gân': 53,
+    'Chiến Tranh': 10752,
+    'Viễn Tây': 37,
   };
 
   String? _selectedGenre;
@@ -124,7 +140,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
       onChanged: _onSearchChanged,
       style: TextStyle(color: AppColors.textOf(context)),
       decoration: InputDecoration(
-        hintText: 'Search....',
+        hintText: 'Tìm kiếm....',
         hintStyle: TextStyle(color: AppColors.textFadedOf(context)),
         prefixIcon: Icon(Icons.search, color: AppColors.textFadedOf(context)),
         filled: true,
@@ -185,18 +201,16 @@ class _CategoriesPageState extends State<CategoriesPage> {
               enabled: true,
               child: _buildGrid(context, _fakeMovies),
             ),
-            CategoriesError(:final message) => _buildMessage(
-              context,
-              message,
-            ),
-            CategoriesLoaded(:final movies) => movies.isEmpty
-                ? _buildMessage(
-                    context,
-                    _query.isEmpty
-                        ? 'Không tìm thấy phim cho thể loại này.'
-                        : 'Không tìm thấy phim phù hợp với "$_query".',
-                  )
-                : _buildGrid(context, movies),
+            CategoriesError(:final message) => _buildMessage(context, message),
+            CategoriesLoaded(:final movies, :final isLoadingMore) =>
+              movies.isEmpty
+                  ? _buildMessage(
+                      context,
+                      _query.isEmpty
+                          ? 'Không tìm thấy phim cho thể loại này.'
+                          : 'Không tìm thấy phim phù hợp với "$_query".',
+                    )
+                  : _buildGrid(context, movies, showLoadingMore: isLoadingMore),
           },
         );
       },
@@ -224,22 +238,48 @@ class _CategoriesPageState extends State<CategoriesPage> {
     );
   }
 
-  Widget _buildGrid(BuildContext context, List<Movie> movies) {
+  // Infinite scroll: khi còn 300px là chạm đáy, xin bloc tải trang tiếp
+  // theo. Bloc tự bỏ qua nếu đang tải hoặc đã hết trang nên gọi nhiều
+  // lần lúc cuộn không sao.
+  Widget _buildGrid(
+    BuildContext context,
+    List<Movie> movies, {
+    bool showLoadingMore = false,
+  }) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final columns = responsiveGridColumns(constraints.maxWidth);
-        return GridView.builder(
-          physics: const AlwaysScrollableScrollPhysics(),
-          itemCount: movies.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 0.58,
-          ),
-          itemBuilder: (context, index) {
-            return _MovieGridTile(movie: movies[index]);
+        return NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification.metrics.extentAfter < 300) {
+              _bloc.add(const CategoriesLoadMoreRequested());
+            }
+            return false;
           },
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: columns,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  childAspectRatio: 0.58,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _MovieGridTile(movie: movies[index]),
+                  childCount: movies.length,
+                ),
+              ),
+              if (showLoadingMore)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );
@@ -324,7 +364,11 @@ class _MovieGridTile extends StatelessWidget {
       );
     }
 
-    Widget errorBuilder(BuildContext context, Object error, StackTrace? stackTrace) {
+    Widget errorBuilder(
+      BuildContext context,
+      Object error,
+      StackTrace? stackTrace,
+    ) {
       return Center(
         child: Icon(Icons.movie, color: AppColors.textFadedOf(context)),
       );

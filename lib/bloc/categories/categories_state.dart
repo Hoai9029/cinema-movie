@@ -18,12 +18,20 @@ class CategoriesLoading extends CategoriesState {
 }
 
 class CategoriesLoaded extends CategoriesState {
-  const CategoriesLoaded(this.movies);
+  const CategoriesLoaded(
+    this.movies, {
+    this.hasMore = false,
+    this.isLoadingMore = false,
+  });
 
   final List<Movie> movies;
+  // Còn trang tiếp theo để tải (infinite scroll) hay không.
+  final bool hasMore;
+  // Đang tải trang tiếp theo — hiển thị spinner ở cuối lưới.
+  final bool isLoadingMore;
 
   @override
-  List<Object?> get props => [movies];
+  List<Object?> get props => [movies, hasMore, isLoadingMore];
 }
 
 class CategoriesError extends CategoriesState {

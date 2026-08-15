@@ -16,6 +16,7 @@ import '../data/api/tmdb_api.dart';
 import '../data/api/tmdb_dio_client.dart';
 import '../data/models/tmdb_movie_detail_response.dart';
 import '../models/movie.dart';
+import '../routes/app_router.dart';
 import '../widgets/favorite_toast.dart';
 
 // Dữ liệu phim đầy đủ hiện chưa có nguồn thật (chưa có backend cấp link
@@ -107,16 +108,32 @@ class _MovieDetailView extends StatefulWidget {
   State<_MovieDetailView> createState() => _MovieDetailViewState();
 }
 
-class _MovieDetailViewState extends State<_MovieDetailView> {
+class _MovieDetailViewState extends State<_MovieDetailView> with RouteAware {
   // Một controller duy nhất dùng chung cho cả trailer lẫn "xem ngay":
   // đổi nguồn video bằng controller.load(id) thay vì tạo controller mới
   // mỗi lần, để không phải mở WebView mới hay gọi lại API chi tiết phim.
   YoutubePlayerController? _playerController;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context) as PageRoute);
+  }
+
+  @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     _playerController?.dispose();
     super.dispose();
+  }
+
+  // Được RouteObserver gọi khi 1 trang khác (ví dụ MovieDetailPage của
+  // phim tương tự) được đẩy đè lên trên trang này. Trang cũ không hề bị
+  // pop nên WebView của YoutubePlayerController vẫn sống và tiếp tục
+  // phát tiếng phía sau nếu không chủ động dừng ở đây.
+  @override
+  void didPushNext() {
+    _playerController?.pause();
   }
 
   void _startPlayback(String videoId) {

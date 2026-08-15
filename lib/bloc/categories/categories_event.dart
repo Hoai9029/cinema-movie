@@ -33,3 +33,9 @@ class CategoriesSearchChanged extends CategoriesEvent {
 class CategoriesRefreshRequested extends CategoriesEvent {
   const CategoriesRefreshRequested();
 }
+
+// Dùng cho infinite scroll: gọi trang tiếp theo của truy vấn đang active.
+// Bloc tự bỏ qua nếu đang tải hoặc đã hết trang.
+class CategoriesLoadMoreRequested extends CategoriesEvent {
+  const CategoriesLoadMoreRequested();
+}
