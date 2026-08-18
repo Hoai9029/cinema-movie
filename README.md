@@ -38,8 +38,8 @@ Toàn bộ dữ liệu phim (banner, danh mục, chi tiết, diễn viên, trail
 
 ## 📱 Ảnh chụp màn hình
 
-| Trang chủ |  
-<img width="456" height="976" alt="image" src="https://github.com/user-attachments/assets/cca1fd31-8fb4-4a0a-bab7-149e9b21e183" /> </p>
+| Trang chủ |  </p>
+<img width="455" height="967" alt="image" src="https://github.com/user-attachments/assets/e9939e42-eda2-4228-b517-bd24db9a373e" /> </p>
 |Chi tiết phim| </p>
 <img width="456" height="967" alt="image" src="https://github.com/user-attachments/assets/fb1ebb2b-1bb7-475a-bf73-4f56e35d4c2d" /> </p>
 | Danh mục | </p>
@@ -48,35 +48,35 @@ Toàn bộ dữ liệu phim (banner, danh mục, chi tiết, diễn viên, trail
 ## 🏗️ Kiến trúc & Công nghệ
 
 Ứng dụng theo kiến trúc **BLoC (Business Logic Component)**, tách biệt hoàn toàn UI khỏi logic nghiệp vụ và nguồn dữ liệu.
-lib/
-├── bloc/            # BLoC theo từng tính năng (auth, home, categories,
-│                       movie_detail, watchlist, history, profile, theme)
-├── core/            # Theme, màu sắc, hằng số dùng chung
-├── data/
-│   ├── api/         # TMDB API client (Dio + Retrofit)
-│   ├── auth/         # Firebase Authentication repository
-│   └── models/      # DTO / response models (json_serializable)
-├── models/          # Domain model (Movie)
-├── pages/           # Màn hình UI
-├── routes/          # Định tuyến tập trung (onGenerateRoute)
-├── widgets/         # Widget dùng chung
-└── main.dart        # Điểm khởi động, khởi tạo Firebase, Hive, BLoC providers
+lib/   </p>
+├── bloc/            # BLoC theo từng tính năng (auth, home, categories,  </p>
+│                       movie_detail, watchlist, history, profile, theme)  </p>
+├── core/            # Theme, màu sắc, hằng số dùng chung    </p>
+├── data/   </p>
+│   ├── api/         # TMDB API client (Dio + Retrofit) </p>
+│   ├── auth/         # Firebase Authentication repository </p>
+│   └── models/      # DTO / response models (json_serializable)  </p>
+├── models/          # Domain model (Movie)  </p>
+├── pages/           # Màn hình UI  </p>
+├── routes/          # Định tuyến tập trung (onGenerateRoute)  </p>
+├── widgets/         # Widget dùng chung  </p>
+└── main.dart        # Điểm khởi động, khởi tạo Firebase, Hive, BLoC providers </p>
 
 
 
 **Công nghệ chính:**
 
-| Hạng mục | Công nghệ |
-| --- | --- |
-| Framework | [Flutter](https://flutter.dev) 3.x / Dart 3.12 |
-| State Management | [flutter_bloc](https://pub.dev/packages/flutter_bloc), [equatable](https://pub.dev/packages/equatable) |
-| Networking | [Dio](https://pub.dev/packages/dio) + [Retrofit](https://pub.dev/packages/retrofit) |
-| Dữ liệu phim | [TMDB API](https://developer.themoviedb.org/docs) |
-| Xác thực & CSDL | [Firebase Auth](https://firebase.google.com/products/auth), [Cloud Firestore](https://firebase.google.com/products/firestore) |
-| Lưu trữ cục bộ | [Hive](https://pub.dev/packages/hive) |
-| Phát video | [youtube_player_flutter](https://pub.dev/packages/youtube_player_flutter) |
-| UI/UX | [carousel_slider](https://pub.dev/packages/carousel_slider), [skeletonizer](https://pub.dev/packages/skeletonizer) |
-| Kiểm thử | flutter_test, [bloc_test](https://pub.dev/packages/bloc_test) |
+| Hạng mục | Công nghệ | </p>
+
+| Framework | [Flutter](https://flutter.dev) 3.x / Dart 3.12  </p>
+| State Management | [flutter_bloc](https://pub.dev/packages/flutter_bloc), [equatable](https://pub.dev/packages/equatable) </p>
+| Networking | [Dio](https://pub.dev/packages/dio) + [Retrofit](https://pub.dev/packages/retrofit) </p>
+| Dữ liệu phim | [TMDB API](https://developer.themoviedb.org/docs) </p>
+| Xác thực & CSDL | [Firebase Auth](https://firebase.google.com/products/auth), [Cloud Firestore](https://firebase.google.com/products/firestore) </p>
+| Lưu trữ cục bộ | [Hive](https://pub.dev/packages/hive) </p>
+| Phát video | [youtube_player_flutter](https://pub.dev/packages/youtube_player_flutter) </p>
+| UI/UX | [carousel_slider](https://pub.dev/packages/carousel_slider), [skeletonizer](https://pub.dev/packages/skeletonizer) </p>
+| Kiểm thử | flutter_test, [bloc_test](https://pub.dev/packages/bloc_test) </p>
 
 ## 🚀 Bắt đầu
 
