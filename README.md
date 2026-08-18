@@ -39,11 +39,11 @@ Toàn bộ dữ liệu phim (banner, danh mục, chi tiết, diễn viên, trail
 ## 📱 Ảnh chụp màn hình
 
 | Trang chủ |  
-<img width="639" height="976" alt="image" src="https://github.com/user-attachments/assets/cca1fd31-8fb4-4a0a-bab7-149e9b21e183" /> </p>
-|Chi tiết phim|
+<img width="456" height="976" alt="image" src="https://github.com/user-attachments/assets/cca1fd31-8fb4-4a0a-bab7-149e9b21e183" /> </p>
+|Chi tiết phim| </p>
 <img width="456" height="967" alt="image" src="https://github.com/user-attachments/assets/fb1ebb2b-1bb7-475a-bf73-4f56e35d4c2d" /> </p>
-| Danh mục |
-<img width="460" height="970" alt="image" src="https://github.com/user-attachments/assets/a4849e29-8720-4c6e-8167-a4a6ccb46744" /> </p>
+| Danh mục | </p>
+<img width="456" height="970" alt="image" src="https://github.com/user-attachments/assets/a4849e29-8720-4c6e-8167-a4a6ccb46744" /> </p>
 
 ## 🏗️ Kiến trúc & Công nghệ
 
@@ -150,6 +150,3 @@ Dự án được cấp phép theo giấy phép MIT.
 🙏 Ghi nhận
 Dữ liệu phim được cung cấp bởi The Movie Database (TMDB). Dự án này sử dụng TMDB API nhưng không được TMDB xác nhận hay chứng thực.
 <p align="center">Được xây dựng với ❤️ bằng Flutter</p> ```
-Vài lưu ý khi bạn dán lên GitHub:
-
-
