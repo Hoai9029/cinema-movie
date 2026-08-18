@@ -39,11 +39,11 @@ Toàn bộ dữ liệu phim (banner, danh mục, chi tiết, diễn viên, trail
 ## 📱 Ảnh chụp màn hình
 
 | Trang chủ |  
-<img width="639" height="976" alt="image" src="https://github.com/user-attachments/assets/cca1fd31-8fb4-4a0a-bab7-149e9b21e183" />
+<img width="639" height="976" alt="image" src="https://github.com/user-attachments/assets/cca1fd31-8fb4-4a0a-bab7-149e9b21e183" /> </p>
 |Chi tiết phim|
-<img width="456" height="967" alt="image" src="https://github.com/user-attachments/assets/fb1ebb2b-1bb7-475a-bf73-4f56e35d4c2d" />
+<img width="456" height="967" alt="image" src="https://github.com/user-attachments/assets/fb1ebb2b-1bb7-475a-bf73-4f56e35d4c2d" /> </p>
 | Danh mục |
-<img width="460" height="970" alt="image" src="https://github.com/user-attachments/assets/a4849e29-8720-4c6e-8167-a4a6ccb46744" />
+<img width="460" height="970" alt="image" src="https://github.com/user-attachments/assets/a4849e29-8720-4c6e-8167-a4a6ccb46744" /> </p>
 
 ## 🏗️ Kiến trúc & Công nghệ
 
@@ -152,6 +152,4 @@ Dữ liệu phim được cung cấp bởi The Movie Database (TMDB). Dự án n
 <p align="center">Được xây dựng với ❤️ bằng Flutter</p> ```
 Vài lưu ý khi bạn dán lên GitHub:
 
-Phần Ảnh chụp màn hình đang để trống — bạn nên chụp vài màn hình thật (trang chủ, chi tiết phim, danh mục) và thêm link ảnh vào bảng đó, README sẽ trông "xịn" hơn hẳn.
-Nếu chưa muốn thêm file LICENSE, hãy xoá dòng "Giấy phép" hoặc tạo file MIT LICENSE thật trong repo để badge/link không bị 404.
-README dùng đúng URL repo hiện tại của bạn (Hoai9029/cinema-movie) lấy từ git remote -v.
+
