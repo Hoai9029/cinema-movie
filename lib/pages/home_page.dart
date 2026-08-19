@@ -40,6 +40,7 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
 
   static const _titles = ['Trang chủ', 'Danh mục', 'Yêu thích', 'Hồ sơ'];
+  static const _profileTabIndex = 3;
 
   // Widget Tree: mỗi tab tương ứng với MỘT widget con riêng biệt.
   // Khai báo MỘT LẦN ở đây (không phải trong build()) và giữ nguyên
@@ -73,11 +74,14 @@ class _HomePageState extends State<HomePage> {
             padding: const EdgeInsets.only(right: 16),
             child: BlocBuilder<ProfileBloc, ProfileState>(
               builder: (context, state) {
-                return CircleAvatar(
-                  backgroundImage: AssetImage(
-                    AppAvatars.pathOf(state.avatarId),
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedIndex = _profileTabIndex),
+                  child: CircleAvatar(
+                    backgroundImage: AssetImage(
+                      AppAvatars.pathOf(state.avatarId),
+                    ),
+                    backgroundColor: AppColors.primary,
                   ),
-                  backgroundColor: AppColors.primary,
                 );
               },
             ),

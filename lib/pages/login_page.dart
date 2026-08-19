@@ -133,10 +133,10 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(
-                      Icons.play_circle_fill,
-                      size: 56,
-                      color: AppColors.primary,
+                    Image.asset(
+                      'assets/images/CineStream_AppIcon_1024.png',
+                      width: 80,
+                      height: 80,
                     ),
                     const SizedBox(height: 16),
                     Text(
